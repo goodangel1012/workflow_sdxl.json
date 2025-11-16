@@ -1,4 +1,3 @@
-# Use Python 3.12 Debian slim base image
 FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04
 
 # Set working directory
@@ -24,10 +23,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
     
 RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# ---------------------------------------------------------
-# Install PyTorch (CUDA 12.6)
-# ---------------------------------------------------------
 RUN pip install --upgrade pip
 RUN pip install torch==2.4.1+cu126 torchvision==0.19.1+cu126 torchaudio==2.4.1 \
     --index-url https://download.pytorch.org/whl/cu126
