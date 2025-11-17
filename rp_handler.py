@@ -3,6 +3,7 @@ import random
 import sys
 import uuid
 import requests
+import subprocess
 from typing import Sequence, Mapping, Any, Union
 import torch
 import boto3
@@ -326,7 +327,7 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
                 pix_fmt="yuv420p",
                 crf=19,
                 save_metadata=True,
-                trim_to_audio=False,
+                trim_to_audio=True,
                 pingpong=False,
                 save_output=True,
                 images=get_value_at_index(wanvideodecode_32, 0),
@@ -339,8 +340,8 @@ async def handler(input):
     image_url = input["input"].get("image_url")
     audio_url = input["input"].get("audio_url")
     
-    # Create the inputs directory if it doesn't exist
-    inputs_dir = "/root/comfy/comfyUI/inputs/"
+    # Create the inputs directory if it doesn't exist (correct path)
+    inputs_dir = "/root/comfy/ComfyUI/input/"
     os.makedirs(inputs_dir, exist_ok=True)
     
     # Download image
@@ -368,8 +369,9 @@ async def handler(input):
         f.write(audio_response.content)
     
     random_suffix = uuid.uuid4().hex[:6]
-    # Run the workflow with the downloaded files
-    await workflow(prompt, audio_path, image_path,random_suffix)
+    # Run the workflow with the downloaded files (pass filenames, not full paths)
+    await workflow(prompt, audio_filename, image_filename, random_suffix)
+    
     # Find the output video file
     outputs_dir = "/root/comfy/ComfyUI/output/"
     output_filename = None
@@ -384,8 +386,47 @@ async def handler(input):
         output_path = os.path.join(outputs_dir, output_filename)
     else:
         output_path = None
-    # Upload output video to S3 and get URL
+        
+    final_video_path = None
+    
+    # Process video with ffmpeg to ensure audio is properly combined
     if output_path and os.path.exists(output_path):
+        final_video_filename = f"final_{random_suffix}.mp4"
+        final_video_path = os.path.join(outputs_dir, final_video_filename)
+        
+        try:
+            # Use ffmpeg to combine video and audio with proper encoding
+            ffmpeg_cmd = [
+                'ffmpeg', '-y',  # -y to overwrite output files
+                '-i', output_path,  # Input video
+                '-i', audio_path,   # Input audio
+                '-c:v', 'libx264',  # Video codec
+                '-c:a', 'aac',      # Audio codec
+                '-strict', 'experimental',
+                '-b:a', '192k',     # Audio bitrate
+                '-shortest',        # Match shortest stream duration
+                '-pix_fmt', 'yuv420p',  # Pixel format for compatibility
+                final_video_path
+            ]
+            
+            print(f"Running ffmpeg command: {' '.join(ffmpeg_cmd)}")
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=True)
+            print(f"FFmpeg completed successfully")
+            
+        except subprocess.CalledProcessError as e:
+            print(f"FFmpeg error: {e}")
+            print(f"FFmpeg stderr: {e.stderr}")
+            # If ffmpeg fails, use the original video
+            final_video_path = output_path
+            final_video_filename = output_filename
+        except Exception as e:
+            print(f"Error processing video with ffmpeg: {e}")
+            # If ffmpeg fails, use the original video
+            final_video_path = output_path
+            final_video_filename = output_filename
+    
+    # Upload output video to S3 and get URL
+    if final_video_path and os.path.exists(final_video_path):
         s3_client = boto3.client(
             's3',
             aws_access_key_id=AWS_ACCESS_KEY,
@@ -394,23 +435,41 @@ async def handler(input):
         )
         
         bucket_name = 'fritz-comfyui'  
-        s3_key = f"{output_filename}"
+        s3_key = f"videos/{final_video_filename}"
         
         try:
             # Upload file to S3
-            s3_client.upload_file(output_path, bucket_name, s3_key)
+            print(f"Uploading {final_video_path} to S3 as {s3_key}")
+            s3_client.upload_file(final_video_path, bucket_name, s3_key)
             
             # Generate S3 URL
             s3_url = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
             
             output_s3_url = s3_url
+            print(f"Successfully uploaded to S3: {s3_url}")
+            
+            # Clean up local files
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+                if final_video_path != output_path and os.path.exists(output_path):
+                    os.remove(output_path)  # Remove original if we created a new one
+                if os.path.exists(final_video_path):
+                    os.remove(final_video_path)  # Remove final after upload
+            except Exception as e:
+                print(f"Error cleaning up files: {e}")
+                
         except Exception as e:
             print(f"Error uploading to S3: {e}")
             output_s3_url = None
     else:
+        print("No output video file found")
         output_s3_url = None
+        
     return { 
-        "message": "Success! Download the video from the provided URL.",
+        "message": "Success! Download the video from the provided URL." if output_s3_url else "Failed to generate or upload video.",
         "video_url": output_s3_url
     }
  
