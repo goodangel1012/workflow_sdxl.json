@@ -24,7 +24,7 @@ validate_or_redownload() {
             return 1
         fi
     fi
-    
+     
     python3 - <<EOF
 from safetensors import safe_open
 import sys, os
