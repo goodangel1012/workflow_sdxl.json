@@ -51,5 +51,5 @@ python3 -c "from huggingface_hub import snapshot_download; snapshot_download(rep
 cp -r /runpod-volume/WanVideo_comfy/Lynx /root/comfy/ComfyUI/models/diffusion_models/
 
 # Start the handler
-cd /root/comfy/comfyUI
+cd /root/comfy/ComfyUI
 python -u rp_handler.py

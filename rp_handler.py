@@ -94,46 +94,28 @@ def add_extra_model_paths() -> None:
 add_comfyui_directory_to_sys_path()
 add_extra_model_paths()
 
-def import_custom_nodes() -> None:
-    """
-    Find all custom nodes in the custom_nodes folder and initialize them safely
-    without calling asyncio.run() inside an already running event loop.
-    """
+async def import_custom_nodes() -> None:
     import asyncio
     import execution
     from nodes import init_extra_nodes
-
+    
     sys.path.insert(0, find_path("ComfyUI"))
     import server
-
-    try:
-        # Try to get the running loop (RunPod environment)
-        loop = asyncio.get_running_loop()
-        running_loop = True
-    except RuntimeError:
-        # No loop running -> create one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        running_loop = False
-
-    # Initialize PromptServer correctly
+    
+    loop = asyncio.get_running_loop()
+    
     server_instance = server.PromptServer(loop)
     execution.PromptQueue(server_instance)
-
-    # Run init_extra_nodes depending on environment
-    if running_loop:
-        # We are *inside* a running loop → schedule task
-        loop.create_task(init_extra_nodes())
-    else:
-        # Not inside a running loop → safe to run until complete
-        loop.run_until_complete(init_extra_nodes())
+    
+    # THIS waits for the async function to finish!
+    await init_extra_nodes()
 
 
 from nodes import NODE_CLASS_MAPPINGS
 
 
-def workflow(prompt:str,audio_file,image_file, output_suffix):
-    import_custom_nodes()
+async def workflow(prompt:str,audio_file,image_file, output_suffix):
+    await import_custom_nodes()
     with torch.inference_mode():
         loadlynxresampler = NODE_CLASS_MAPPINGS["LoadLynxResampler"]()
         loadlynxresampler_16 = loadlynxresampler.loadmodel(
@@ -356,7 +338,7 @@ def workflow(prompt:str,audio_file,image_file, output_suffix):
                 unique_id=15650465383331186117,
             )
 
-def handler(input):
+async def handler(input):
     prompt = input["input"].get("prompt")
     image_url = input["input"].get("image_url")
     audio_url = input["input"].get("audio_url")
@@ -391,7 +373,7 @@ def handler(input):
     
     random_suffix = uuid.uuid4().hex[:6]
     # Run the workflow with the downloaded files
-    workflow(prompt, audio_path, image_path,random_suffix)
+    await workflow(prompt, audio_path, image_path,random_suffix)
     # Find the output video file
     outputs_dir = "/root/comfy/ComfyUI/output/"
     output_filename = None
