@@ -208,8 +208,9 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
 
         intconstant = NODE_CLASS_MAPPINGS["INTConstant"]()
         intconstant_95 = intconstant.get_value(value=24)
+        mathexpressionpysssss = NODE_CLASS_MAPPINGS["MathExpression|pysssss"]()
         
-        mathexpressionpysssss_98: 94 = mathexpressionpysssss.evaluate(
+        mathexpressionpysssss_98 = mathexpressionpysssss.evaluate(
             expression="a*b",
             a=get_value_at_index(intconstant_95, 0),
             b=get_value_at_index(vhs_loadaudioupload_93, 1),
@@ -236,7 +237,6 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
         wanvideosampler = NODE_CLASS_MAPPINGS["WanVideoSampler"]()
         wanvideodecode = NODE_CLASS_MAPPINGS["WanVideoDecode"]()
         vhs_videocombine = NODE_CLASS_MAPPINGS["VHS_VideoCombine"]()
-        mathexpressionpysssss = NODE_CLASS_MAPPINGS["MathExpression|pysssss"]()
 
         for q in range(1):
             wanvideoextramodelselect_13 = wanvideoextramodelselect.getmodelpath(
