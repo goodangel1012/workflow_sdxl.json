@@ -12,10 +12,17 @@ validate_or_redownload() {
     file="$1"
     url="$2"
     
+    # Ensure directory exists before downloading
+    mkdir -p "$(dirname "$file")"
+    
     # If file doesn't exist, download it first
     if [ ! -f "$file" ]; then
         echo "Downloading $file"
         wget -O "$file" "$url"
+        if [ $? -ne 0 ]; then
+            echo "[ERROR] Download failed for $file"
+            return 1
+        fi
     fi
     
     python3 - <<EOF
@@ -27,16 +34,23 @@ try:
     with safe_open(path, framework="pt") as f:
         f.keys()
     print(f"[OK] Valid safetensors file: {path}")
-except:
-    print(f"[ERROR] Detected corrupted model: {path}")
-    os.remove(path)
+except Exception as e:
+    print(f"[ERROR] Detected corrupted model: {path} - {e}")
+    if os.path.exists(path):
+        os.remove(path)
     print("Re-downloading...")
-    import os
     sys.exit(2)  # signal bash to re-download
 EOF
 
     if [ $? -eq 2 ]; then
+        echo "Re-downloading $file due to corruption..."
+        # Remove any existing file before re-downloading
+        rm -f "$file"
         wget -O "$file" "$url"
+        if [ $? -ne 0 ]; then
+            echo "[ERROR] Re-download failed for $file"
+            return 1
+        fi
         validate_or_redownload "$file" "$url"
     fi
 }
