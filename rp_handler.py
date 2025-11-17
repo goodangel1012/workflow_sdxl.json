@@ -348,9 +348,9 @@ def workflow(prompt:str,audio_file,image_file, output_suffix):
             )
 
 def handler(input):
-    prompt = input["prompt"]
-    image_url = input["image_url"]
-    audio_url = input["audio_url"]
+    prompt = input["input"].get("prompt")
+    image_url = input["input"].get("image_url")
+    audio_url = input["input"].get("audio_url")
     
     # Create the inputs directory if it doesn't exist
     inputs_dir = "/root/comfy/comfyUI/inputs/"
