@@ -44,11 +44,16 @@ cp /runpod-volume/umt5-xxl-enc-bf16.safetensors /root/comfy/ComfyUI/models/clip/
 cp /runpod-volume/Wan2_1_VAE_bf16.safetensors /root/comfy/ComfyUI/models/vae/
 cp /runpod-volume/Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors /root/comfy/ComfyUI/models/diffusion_models/
 
-# Download from HuggingFace Hub
-python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Kijai/WanVideo_comfy', local_dir='/runpod-volume/WanVideo_comfy', allow_patterns='Lynx/*')"
-
-# Copy Lynx model
-cp -r /runpod-volume/WanVideo_comfy/Lynx /root/comfy/ComfyUI/models/diffusion_models/
+# Download from HuggingFace Hub only if Lynx folder doesn't exist
+if [ ! -d "/runpod-volume/WanVideo_comfy" ]; then
+    echo "Lynx folder not found, downloading from HuggingFace Hub..."
+    python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Kijai/WanVideo_comfy', local_dir='/runpod-volume/WanVideo_comfy', allow_patterns='Lynx/*')"
+    # Copy Lynx model
+    cp -r /runpod-volume/WanVideo_comfy/Lynx /root/comfy/ComfyUI/models/diffusion_models/
+else
+    echo "Lynx folder already exists, skipping download"
+    cp -r /runpod-volume/WanVideo_comfy/Lynx /root/comfy/ComfyUI/models/diffusion_models/
+fi
 
 # Start the handler
 cd /root/comfy/ComfyUI

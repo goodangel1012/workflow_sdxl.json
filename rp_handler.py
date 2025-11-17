@@ -210,11 +210,7 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
         intconstant_95 = intconstant.get_value(value=24)
         mathexpressionpysssss = NODE_CLASS_MAPPINGS["MathExpression|pysssss"]()
         
-        mathexpressionpysssss_98 = mathexpressionpysssss.evaluate(
-            expression="a*b",
-            a=get_value_at_index(intconstant_95, 0),
-            b=get_value_at_index(vhs_loadaudioupload_93, 1),
-        )
+        mathexpressionpysssss_98 =get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1)
         downloadandloadwav2vecmodel = NODE_CLASS_MAPPINGS[
             "DownloadAndLoadWav2VecModel"
         ]()
@@ -265,7 +261,7 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
                 block_swap_args=get_value_at_index(wanvideoblockswap_29, 0),
             )
             wanvideoemptyembeds_24 = wanvideoemptyembeds.process(
-            width=832, height=480, num_frames=get_value_at_index(mathexpressionpysssss_98, 0)
+            width=832, height=480, num_frames=mathexpressionpysssss_98
         )
             wanvideoaddlynxembeds_55 = wanvideoaddlynxembeds.add(
                 ip_scale=0.7,
@@ -283,7 +279,7 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
             
             multitalkwav2vecembeds_99 = multitalkwav2vecembeds.process(
                 normalize_loudness=True,
-                num_frames=get_value_at_index(mathexpressionpysssss_98, 0),
+                num_frames=mathexpressionpysssss_98,
                 fps=24,
                 audio_scale=1,
                 audio_cfg_scale=2,
