@@ -210,7 +210,7 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
         intconstant_95 = intconstant.get_value(value=24)
         mathexpressionpysssss = NODE_CLASS_MAPPINGS["MathExpression|pysssss"]()
         
-        mathexpressionpysssss_98 =get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1)
+        mathexpressionpysssss_98 =int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
         downloadandloadwav2vecmodel = NODE_CLASS_MAPPINGS[
             "DownloadAndLoadWav2VecModel"
         ]()
