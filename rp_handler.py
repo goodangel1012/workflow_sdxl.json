@@ -94,12 +94,10 @@ def add_extra_model_paths() -> None:
 add_comfyui_directory_to_sys_path()
 add_extra_model_paths()
 
-
 def import_custom_nodes() -> None:
-    """Find all custom nodes in the custom_nodes folder and add those node objects to NODE_CLASS_MAPPINGS
-
-    This function sets up a new asyncio event loop, initializes the PromptServer,
-    creates a PromptQueue, and initializes the custom nodes.
+    """
+    Find all custom nodes in the custom_nodes folder and initialize them safely
+    without calling asyncio.run() inside an already running event loop.
     """
     import asyncio
     import execution
@@ -108,16 +106,27 @@ def import_custom_nodes() -> None:
     sys.path.insert(0, find_path("ComfyUI"))
     import server
 
-    # Creating a new event loop and setting it as the default loop
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        # Try to get the running loop (RunPod environment)
+        loop = asyncio.get_running_loop()
+        running_loop = True
+    except RuntimeError:
+        # No loop running -> create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        running_loop = False
 
-    # Creating an instance of PromptServer with the loop
+    # Initialize PromptServer correctly
     server_instance = server.PromptServer(loop)
     execution.PromptQueue(server_instance)
 
-    # Initializing custom nodes
-    asyncio.run(init_extra_nodes())
+    # Run init_extra_nodes depending on environment
+    if running_loop:
+        # We are *inside* a running loop → schedule task
+        loop.create_task(init_extra_nodes())
+    else:
+        # Not inside a running loop → safe to run until complete
+        loop.run_until_complete(init_extra_nodes())
 
 
 from nodes import NODE_CLASS_MAPPINGS
