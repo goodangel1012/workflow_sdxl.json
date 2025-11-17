@@ -112,7 +112,7 @@ async def import_custom_nodes() -> None:
 
 
 from nodes import NODE_CLASS_MAPPINGS
-
+ 
 
 async def workflow(prompt:str,audio_file,image_file, output_suffix):
     await import_custom_nodes()
