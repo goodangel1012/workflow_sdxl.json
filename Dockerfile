@@ -1,6 +1,6 @@
 FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04
 
-# Set working directory
+# Set working directory to root
 WORKDIR /root
 
 # Install system dependencies
