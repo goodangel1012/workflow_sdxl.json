@@ -9,143 +9,9 @@ import torch
 import boto3
 import runpod
 import os
-import gc
-import psutil
 
 AWS_ACCESS_KEY=os.environ.get("AWS_ACCESS_KEY")
 AWS_SECRET_ACCESS_KEY=os.environ.get("AWS_SECRET_ACCESS_KEY")
-
-def cleanup_memory():
-    """Comprehensive memory cleanup to free VRAM and system memory"""
-    try:
-        # Clear CUDA cache
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
-            # Synchronize CUDA operations
-            torch.cuda.synchronize()
-        
-        # Force garbage collection
-        gc.collect()
-        
-        print(f"[CLEANUP] Memory cleanup completed")
-        if torch.cuda.is_available():
-            memory_allocated = torch.cuda.memory_allocated() / 1024**3  # GB
-            memory_reserved = torch.cuda.memory_reserved() / 1024**3   # GB
-            print(f"[MEMORY] CUDA allocated: {memory_allocated:.2f}GB, reserved: {memory_reserved:.2f}GB")
-        
-    except Exception as e:
-        print(f"[ERROR] Memory cleanup failed: {e}")
-
-def log_memory_usage(stage=""):
-    """Log current memory usage for debugging"""
-    try:
-        if torch.cuda.is_available():
-            memory_allocated = torch.cuda.memory_allocated() / 1024**3  # GB
-            memory_reserved = torch.cuda.memory_reserved() / 1024**3   # GB
-            print(f"[MEMORY {stage}] CUDA allocated: {memory_allocated:.2f}GB, reserved: {memory_reserved:.2f}GB")
-        
-        # System memory
-        memory = psutil.virtual_memory()
-        print(f"[MEMORY {stage}] System RAM: {memory.used / 1024**3:.2f}GB / {memory.total / 1024**3:.2f}GB ({memory.percent:.1f}%)")
-        
-    except Exception as e:
-        print(f"[ERROR] Memory logging failed: {e}")
-
-def clear_model_cache():
-    """Clear any cached models from ComfyUI"""
-    try:
-        # Try to access ComfyUI's model management if available
-        from model_management import cleanup_models, soft_empty_cache
-        cleanup_models()
-        soft_empty_cache()
-        print(f"[CLEANUP] ComfyUI model cache cleared")
-    except ImportError:
-        print(f"[INFO] ComfyUI model management not available for cleanup")
-    except Exception as e:
-        print(f"[ERROR] ComfyUI model cleanup failed: {e}")
-
-def unload_models(*model_vars, stage=""):
-    """Selectively unload specific models and free their VRAM"""
-    try:
-        freed_count = 0
-        for model_var in model_vars:
-            if model_var is not None:
-                # Try to move model to CPU if it has a .cpu() method
-                if hasattr(model_var, 'cpu'):
-                    model_var.cpu()
-                # Delete the reference
-                del model_var
-                freed_count += 1
-        
-        if freed_count > 0:
-            # Clear CUDA cache after unloading
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            gc.collect()
-            print(f"[UNLOAD {stage}] Freed {freed_count} models from VRAM")
-            log_memory_usage(f"AFTER_UNLOAD_{stage}")
-        
-    except Exception as e:
-        print(f"[ERROR] Model unloading failed: {e}")
-
-def selective_cleanup(stage=""):
-    """Lighter cleanup between workflow stages"""
-    try:
-        torch.cuda.empty_cache()
-        gc.collect()
-        print(f"[SELECTIVE_CLEANUP {stage}] Cache cleared")
-    except Exception as e:
-        print(f"[ERROR] Selective cleanup failed: {e}")
-
-def validate_cuda_state():
-    """Validate CUDA device state and configuration"""
-    try:
-        if not torch.cuda.is_available():
-            print(f"[ERROR] CUDA not available")
-            return False
-            
-        device_count = torch.cuda.device_count()
-        current_device = torch.cuda.current_device()
-        device_name = torch.cuda.get_device_name(current_device)
-        
-        print(f"[CUDA] Device count: {device_count}")
-        print(f"[CUDA] Current device: {current_device} ({device_name})")
-        print(f"[CUDA] CUDA capability: {torch.cuda.get_device_capability(current_device)}")
-        
-        # Test basic CUDA operations
-        test_tensor = torch.tensor([1.0]).cuda()
-        test_result = test_tensor * 2
-        test_result.cpu()
-        del test_tensor, test_result
-        
-        print(f"[CUDA] Basic operations test passed")
-        return True
-        
-    except Exception as e:
-        print(f"[ERROR] CUDA validation failed: {e}")
-        return False
-
-def debug_tensor_operations(stage=""):
-    """Debug tensor operations and device placement"""
-    try:
-        # Set CUDA_LAUNCH_BLOCKING for better error reporting
-        os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-        
-        print(f"[DEBUG {stage}] CUDA_LAUNCH_BLOCKING enabled")
-        
-        # Check for mixed precision issues
-        if torch.cuda.is_available():
-            current_device = torch.cuda.current_device()
-            print(f"[DEBUG {stage}] Current CUDA device: {current_device}")
-            
-            # Check device properties
-            props = torch.cuda.get_device_properties(current_device)
-            print(f"[DEBUG {stage}] Device memory: {props.total_memory / 1024**3:.1f}GB")
-            print(f"[DEBUG {stage}] Compute capability: {props.major}.{props.minor}")
-            
-    except Exception as e:
-        print(f"[ERROR] Debug tensor operations failed: {e}")
 def get_value_at_index(obj: Union[Sequence, Mapping], index: int) -> Any:
     """Returns the value at the given index of a sequence or mapping.
 
@@ -250,18 +116,6 @@ from nodes import NODE_CLASS_MAPPINGS
  
 
 async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_suffix):
-    # Validate CUDA state before starting
-    if not validate_cuda_state():
-        raise RuntimeError("CUDA validation failed - cannot proceed with workflow")
-    
-    # Enable debugging
-    debug_tensor_operations("WORKFLOW_START")
-    
-    # Clear memory before starting workflow
-    log_memory_usage("START")
-    cleanup_memory()
-    clear_model_cache()
-    
     await import_custom_nodes()
     with torch.inference_mode():
         loadlynxresampler = NODE_CLASS_MAPPINGS["LoadLynxResampler"]()
@@ -310,10 +164,6 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             use_disk_cache=True,
             device="gpu",
         )
-        
-        # Text encoding complete - can unload text encoder
-        log_memory_usage("BEFORE_TEXT_UNLOAD")
-        selective_cleanup("TEXT_ENCODING")
 
         lynxinsightfacecrop = NODE_CLASS_MAPPINGS["LynxInsightFaceCrop"]()
         lynxinsightfacecrop_53 = lynxinsightfacecrop.encode(
@@ -325,11 +175,6 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             resampler=get_value_at_index(loadlynxresampler_16, 0),
             ip_image=get_value_at_index(lynxinsightfacecrop_53, 0),
         )
-        
-        # Face processing complete - unload face models
-        log_memory_usage("BEFORE_FACE_UNLOAD")
-        # Note: Keep lynxencodefaceip_52 for later use, but can free intermediate models
-        selective_cleanup("FACE_PROCESSING")
 
         wanvideoextramodelselect = NODE_CLASS_MAPPINGS["WanVideoExtraModelSelect"]()
         wanvideoextramodelselect_69 = wanvideoextramodelselect.getmodelpath(
@@ -439,21 +284,10 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
         vhs_videocombine = NODE_CLASS_MAPPINGS["VHS_VideoCombine"]()
 
         for q in range(1):
-            # Aggressive memory cleanup before each major operation
-            if q > 0:  # Not needed on first iteration
-                cleanup_memory()
-            
-            try:
-                wanvideoextramodelselect_13 = wanvideoextramodelselect.getmodelpath(
-                    extra_model="Lynx/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
-                    prev_model=get_value_at_index(wanvideoextramodelselect_69, 0),
-                )
-                debug_tensor_operations("AFTER_LYNX_MODEL_LOAD")
-                
-            except Exception as model_error:
-                print(f"[ERROR] Failed to load Lynx model: {model_error}")
-                validate_cuda_state()
-                raise model_error
+            wanvideoextramodelselect_13 = wanvideoextramodelselect.getmodelpath(
+                extra_model="Lynx/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
+                prev_model=get_value_at_index(wanvideoextramodelselect_69, 0),
+            )
 
             wanvideomodelloader_12 = wanvideomodelloader.loadmodel(
                 model="Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -534,13 +368,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 vae=get_value_at_index(wanvideovaeloader_31, 0),
                 samples=get_value_at_index(wanvideosampler_22, 0),
             )
-            
-            # Main video generation complete - free heavy diffusion models
-            log_memory_usage("BEFORE_DIFFUSION_UNLOAD")
-            selective_cleanup("MAIN_DIFFUSION")
-            
-            cleanup_memory()
-            clear_model_cache()
+
             imageselector_101 = imageselector.run(
                 selected_indexes="-1", images=get_value_at_index(wanvideodecode_32, 0)
             )
@@ -613,11 +441,6 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 samples=get_value_at_index(ksampleradvanced_110, 0),
                 vae=get_value_at_index(vaeloader_103, 0),
             )
-            
-            # I2V processing complete - free I2V models
-            log_memory_usage("BEFORE_I2V_UNLOAD")
-            # Can now free the heavy I2V models as they're no longer needed
-            selective_cleanup("I2V_PROCESSING")
 
             imagebatchextendwithoverlap_126 = (
                 imagebatchextendwithoverlap.imagesfrombatch(
@@ -643,195 +466,152 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 audio=get_value_at_index(vhs_loadaudioupload_93, 0),
                 unique_id=3956264520723635728,
             )
-            
-            # Clear memory after workflow completion
-            log_memory_usage("END")
-            cleanup_memory()
-            clear_model_cache()
 
 async def handler(input):
-    try:
-        log_memory_usage("HANDLER_START")
+    prompt = input["input"].get("prompt")
+    prompt_motion = input["input"].get("prompt_motion")
+    image_url = input["input"].get("image_url")
+    audio_url = input["input"].get("audio_url")
+    
+    # Create the inputs directory if it doesn't exist (correct path)
+    inputs_dir = "/root/comfy/ComfyUI/input/"
+    os.makedirs(inputs_dir, exist_ok=True)
+    
+    # Download image
+    image_response = requests.get(image_url)
+    image_response.raise_for_status()
+    
+    # Get file extension from URL or default to .jpg for image
+    image_ext = os.path.splitext(image_url.split('?')[0])[1] or '.jpg'
+    image_filename = f"{uuid.uuid4().hex}{image_ext}"
+    image_path = os.path.join(inputs_dir, image_filename)
+    
+    with open(image_path, 'wb') as f:
+        f.write(image_response.content)
+    
+    # Download audio
+    audio_response = requests.get(audio_url)
+    audio_response.raise_for_status()
+    
+    # Get file extension from URL or default to .wav for audio
+    audio_ext = os.path.splitext(audio_url.split('?')[0])[1] or '.wav'
+    audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
+    audio_path = os.path.join(inputs_dir, audio_filename)
+    
+    with open(audio_path, 'wb') as f:
+        f.write(audio_response.content)
+    
+    random_suffix = uuid.uuid4().hex[:6]
+    # Run the workflow with the downloaded files (pass filenames, not full paths)
+    await workflow(prompt, prompt_motion, audio_filename, image_filename, random_suffix)
+    
+    # Find the output video file
+    outputs_dir = "/root/comfy/ComfyUI/output/"
+    output_filename = None
+
+    if os.path.exists(outputs_dir):
+        for filename in os.listdir(outputs_dir):
+            if filename.startswith(f"output_{random_suffix}") and filename.endswith(".mp4"):
+                output_filename = filename
+                break
+
+    if output_filename:
+        output_path = os.path.join(outputs_dir, output_filename)
+    else:
+        output_path = None
         
-        prompt = input["input"].get("prompt")
-        prompt_motion = input["input"].get("prompt_motion")
-        image_url = input["input"].get("image_url")
-        audio_url = input["input"].get("audio_url")
-        
-        # Create the inputs directory if it doesn't exist (correct path)
-        inputs_dir = "/root/comfy/ComfyUI/input/"
-        os.makedirs(inputs_dir, exist_ok=True)
-        
-        # Download image
-        image_response = requests.get(image_url)
-        image_response.raise_for_status()
-        
-        # Get file extension from URL or default to .jpg for image
-        image_ext = os.path.splitext(image_url.split('?')[0])[1] or '.jpg'
-        image_filename = f"{uuid.uuid4().hex}{image_ext}"
-        image_path = os.path.join(inputs_dir, image_filename)
-        
-        with open(image_path, 'wb') as f:
-            f.write(image_response.content)
-        
-        # Download audio
-        audio_response = requests.get(audio_url)
-        audio_response.raise_for_status()
-        
-        # Get file extension from URL or default to .wav for audio
-        audio_ext = os.path.splitext(audio_url.split('?')[0])[1] or '.wav'
-        audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
-        audio_path = os.path.join(inputs_dir, audio_filename)
-        
-        with open(audio_path, 'wb') as f:
-            f.write(audio_response.content)
-        
-        random_suffix = uuid.uuid4().hex[:6]
+    final_video_path = None
+    
+    # Process video with ffmpeg to ensure audio is properly combined
+    if output_path and os.path.exists(output_path):
+        final_video_filename = f"final_{random_suffix}.mp4"
+        final_video_path = os.path.join(outputs_dir, final_video_filename)
         
         try:
-            # Run the workflow with the downloaded files (pass filenames, not full paths)
-            await workflow(prompt, prompt_motion, audio_filename, image_filename, random_suffix)
-        except Exception as workflow_error:
-            error_msg = str(workflow_error)
-            print(f"[ERROR] Workflow failed: {error_msg}")
+            # Use ffmpeg to combine video and audio with proper encoding
+            # Map video duration and trim/pad audio to match
+            ffmpeg_cmd = [
+                'ffmpeg', '-y',  # -y to overwrite output files
+                '-i', output_path,  # Input video
+                '-i', audio_path,   # Input audio
+                '-c:v', 'copy',     # Copy video stream without re-encoding
+                '-c:a', 'aac',      # Audio codec
+                '-b:a', '192k',     # Audio bitrate
+                '-shortest',        # End when shortest input ends (video duration)
+                '-avoid_negative_ts', 'make_zero',  # Handle timestamp issues
+                '-pix_fmt', 'yuv420p',  # Pixel format for compatibility
+                '-t', '10',         # Limit output to 10 seconds max (safety timeout)
+                final_video_path
+            ]
             
-            # Enhanced CUDA error diagnostics
-            if "CUDA" in error_msg or "cuda" in error_msg:
-                print(f"[CUDA_ERROR] Detected CUDA-related error")
-                validate_cuda_state()
-                
-                # Check for common CUDA error patterns
-                if "invalid argument" in error_msg:
-                    print(f"[CUDA_ERROR] Invalid argument - possible causes:")
-                    print(f"  - Device index out of range")
-                    print(f"  - Invalid tensor dimensions")
-                    print(f"  - Mixed device operations")
-                    print(f"  - Corrupted model weights")
-                    print(f"  - Driver compatibility issues")
-                    
-                if "out of memory" in error_msg:
-                    print(f"[CUDA_ERROR] Out of memory detected")
-                    log_memory_usage("OOM_ERROR")
-                    
-            log_memory_usage("ERROR")
-            cleanup_memory()
-            clear_model_cache()
-            raise workflow_error
+            print(f"Running ffmpeg command: {' '.join(ffmpeg_cmd)}")
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=True, timeout=60)  # 60 second timeout
+            print(f"FFmpeg completed successfully")
+            
+        except subprocess.TimeoutExpired:
+            print("FFmpeg timed out after 60 seconds")
+            # Kill any ffmpeg processes and use original video
+            subprocess.run(['pkill', '-f', 'ffmpeg'], capture_output=True)
+            final_video_path = output_path
+            final_video_filename = output_filename
+        except subprocess.CalledProcessError as e:
+            print(f"FFmpeg error: {e}")
+            print(f"FFmpeg stderr: {e.stderr}")
+            # If ffmpeg fails, use the original video
+            final_video_path = output_path
+            final_video_filename = output_filename
+        except Exception as e:
+            print(f"Error processing video with ffmpeg: {e}")
+            # If ffmpeg fails, use the original video
+            final_video_path = output_path
+            final_video_filename = output_filename
+    
+    # Upload output video to S3 and get URL
+    if final_video_path and os.path.exists(final_video_path):
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=AWS_ACCESS_KEY,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name='eu-north-1'  
+        )
         
-        # Find the output video file
-        outputs_dir = "/root/comfy/ComfyUI/output/"
-        output_filename = None
-
-        if os.path.exists(outputs_dir):
-            for filename in os.listdir(outputs_dir):
-                if filename.startswith(f"output_{random_suffix}") and filename.endswith(".mp4"):
-                    output_filename = filename
-                    break
-
-        if output_filename:
-            output_path = os.path.join(outputs_dir, output_filename)
-        else:
-            output_path = None
-            
-        final_video_path = None
+        bucket_name = 'fritz-comfyui'  
+        s3_key = f"videos/{final_video_filename}"
         
-        # Process video with ffmpeg to ensure audio is properly combined
-        if output_path and os.path.exists(output_path):
-            final_video_filename = f"final_{random_suffix}.mp4"
-            final_video_path = os.path.join(outputs_dir, final_video_filename)
+        try:
+            # Upload file to S3
+            print(f"Uploading {final_video_path} to S3 as {s3_key}")
+            s3_client.upload_file(final_video_path, bucket_name, s3_key)
             
+            # Generate S3 URL
+            s3_url = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
+            
+            output_s3_url = s3_url
+            print(f"Successfully uploaded to S3: {s3_url}")
+            
+            # Clean up local files
             try:
-                # Use ffmpeg to combine video and audio with proper encoding
-                # Keep video length, add audio at start and pad with silence if needed
-                ffmpeg_cmd = [
-                    'ffmpeg', '-y',  # -y to overwrite output files
-                    '-i', output_path,  # Input video
-                    '-i', audio_path,   # Input audio
-                    '-c:v', 'copy',     # Copy video stream without re-encoding
-                    '-c:a', 'aac',      # Audio codec
-                    '-b:a', '192k',     # Audio bitrate
-                    '-af', 'apad',      # Pad audio with silence to match video duration
-                    '-pix_fmt', 'yuv420p',  # Pixel format for compatibility
-                    final_video_path
-                ]
-                
-                print(f"Running ffmpeg command: {' '.join(ffmpeg_cmd)}")
-                result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=True)
-                print(f"FFmpeg completed successfully")
-                
-            except subprocess.CalledProcessError as e:
-                print(f"FFmpeg error: {e}")
-                print(f"FFmpeg stderr: {e.stderr}")
-                # If ffmpeg fails, use the original video
-                final_video_path = output_path
-                final_video_filename = output_filename
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+                if final_video_path != output_path and os.path.exists(output_path):
+                    os.remove(output_path)  # Remove original if we created a new one
+                if os.path.exists(final_video_path):
+                    os.remove(final_video_path)  # Remove final after upload
             except Exception as e:
-                print(f"Error processing video with ffmpeg: {e}")
-                # If ffmpeg fails, use the original video
-                final_video_path = output_path
-                final_video_filename = output_filename
-        
-        # Upload output video to S3 and get URL
-        if final_video_path and os.path.exists(final_video_path):
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=AWS_ACCESS_KEY,
-                aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-                region_name='eu-north-1'  
-            )
-            
-            bucket_name = 'fritz-comfyui'  
-            s3_key = f"videos/{final_video_filename}"
-            
-            try:
-                # Upload file to S3
-                print(f"Uploading {final_video_path} to S3 as {s3_key}")
-                s3_client.upload_file(final_video_path, bucket_name, s3_key)
+                print(f"Error cleaning up files: {e}")
                 
-                # Generate S3 URL
-                s3_url = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
-                
-                output_s3_url = s3_url
-                print(f"Successfully uploaded to S3: {s3_url}")
-                
-                # Clean up local files
-                try:
-                    if os.path.exists(image_path):
-                        os.remove(image_path)
-                    if os.path.exists(audio_path):
-                        os.remove(audio_path)
-                    if final_video_path != output_path and os.path.exists(output_path):
-                        os.remove(output_path)  # Remove original if we created a new one
-                    if os.path.exists(final_video_path):
-                        os.remove(final_video_path)  # Remove final after upload
-                except Exception as e:
-                    print(f"Error cleaning up files: {e}")
-                    
-            except Exception as e:
-                print(f"Error uploading to S3: {e}")
-                output_s3_url = None
-        else:
-            print("No output video file found")
+        except Exception as e:
+            print(f"Error uploading to S3: {e}")
             output_s3_url = None
-            
-        return { 
-            "message": "Success! Download the video from the provided URL." if output_s3_url else "Failed to generate or upload video.",
-            "video_url": output_s3_url
-        }
+    else:
+        print("No output video file found")
+        output_s3_url = None
         
-    except Exception as e:
-        print(f"[ERROR] Handler failed: {e}")
-        log_memory_usage("HANDLER_ERROR")
-        cleanup_memory()
-        clear_model_cache()
-        return {
-            "message": f"Failed to process request: {str(e)}",
-            "video_url": None
-        }
-    finally:
-        # Always cleanup memory at the end
-        log_memory_usage("HANDLER_FINAL")
-        cleanup_memory()
-        clear_model_cache()
+    return { 
+        "message": "Success! Download the video from the provided URL." if output_s3_url else "Failed to generate or upload video.",
+        "video_url": output_s3_url
+    }
  
 runpod.serverless.start({"handler": handler}) 
