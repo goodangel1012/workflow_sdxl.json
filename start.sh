@@ -84,10 +84,7 @@ EOF
 # Download and validate files
 validate_or_redownload "/runpod-volume/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors" \
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors"
-
-validate_or_redownload "/runpod-volume/Wan2.1-Fun-InP-14B_fp8_e4m3fn.safetensors" \
-  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Fun/Wan2.1-Fun-InP-14B_fp8_e4m3fn.safetensors"
-
+ 
 validate_or_redownload "/runpod-volume/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" \
   "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
 
@@ -126,8 +123,7 @@ echo "Copying models to ComfyUI directories..."
 
 # Copy new models
 cp /runpod-volume/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors /root/comfy/ComfyUI/models/clip/
-cp /runpod-volume/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors /root/comfy/ComfyUI/models/clip_vision/
-cp /runpod-volume/Wan2.1-Fun-InP-14B_fp8_e4m3fn.safetensors /root/comfy/ComfyUI/models/diffusion_models/
+cp /runpod-volume/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors /root/comfy/ComfyUI/models/clip_vision/ 
 cp /runpod-volume/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors /root/comfy/ComfyUI/models/diffusion_models/
 cp /runpod-volume/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors /root/comfy/ComfyUI/models/diffusion_models/
 cp /runpod-volume/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors /root/comfy/ComfyUI/models/loras/
