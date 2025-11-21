@@ -199,7 +199,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
 
         vhs_loadaudioupload = NODE_CLASS_MAPPINGS["VHS_LoadAudioUpload"]()
         vhs_loadaudioupload_93 = vhs_loadaudioupload.load_audio(
-            audio=audio_file, start_time=0, duration=4
+            audio=audio_file, start_time=0, duration=0
         )
 
         intconstant = NODE_CLASS_MAPPINGS["INTConstant"]()
@@ -523,50 +523,49 @@ async def handler(input):
     final_video_path = None
     
     # Process video with ffmpeg to ensure audio is properly combined
-    final_video_path = output_path
-    # if output_path and os.path.exists(output_path):
-    #     final_video_filename = f"final_{random_suffix}.mp4"
-    #     final_video_path = os.path.join(outputs_dir, final_video_filename)
+    if output_path and os.path.exists(output_path):
+        final_video_filename = f"final_{random_suffix}.mp4"
+        final_video_path = os.path.join(outputs_dir, final_video_filename)
         
-    #     try:
-    #         # Use ffmpeg to combine video and audio with proper encoding
-    #         # Audio will play at start, then silence for rest of video duration
-    #         ffmpeg_cmd = [
-    #             'ffmpeg', '-y',  # -y to overwrite output files
-    #             '-i', output_path,  # Input video
-    #             '-i', audio_path,   # Input audio
-    #             '-c:v', 'copy',     # Copy video stream without re-encoding to preserve original
-    #             '-c:a', 'aac',      # Audio codec
-    #             '-b:a', '128k',     # Audio bitrate
-    #             '-filter_complex', '[1:a]apad=whole_dur=1800[padded_audio]',  # Pad audio to 30 minutes max (1800 seconds)
-    #             '-map', '0:v',      # Map video from first input
-    #             '-map', '[padded_audio]',  # Map padded audio
-    #             '-shortest',        # End when shortest input ends (video determines final duration)
-    #             '-avoid_negative_ts', 'make_zero',  # Handle timestamp issues
-    #             final_video_path
-    #         ]
+        try:
+            # Use ffmpeg to combine video and audio with proper encoding
+            # Audio will play at start, then silence for rest of video duration
+            ffmpeg_cmd = [
+                'ffmpeg', '-y',  # -y to overwrite output files
+                '-i', output_path,  # Input video
+                '-i', audio_path,   # Input audio
+                '-c:v', 'copy',     # Copy video stream without re-encoding to preserve original
+                '-c:a', 'aac',      # Audio codec
+                '-b:a', '128k',     # Audio bitrate
+                '-filter_complex', '[1:a]apad=whole_dur=1800[padded_audio]',  # Pad audio to 30 minutes max (1800 seconds)
+                '-map', '0:v',      # Map video from first input
+                '-map', '[padded_audio]',  # Map padded audio
+                '-shortest',        # End when shortest input ends (video determines final duration)
+                '-avoid_negative_ts', 'make_zero',  # Handle timestamp issues
+                final_video_path
+            ]
             
-    #         print(f"Running ffmpeg command: {' '.join(ffmpeg_cmd)}")
-    #         result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=True, timeout=60)  # 60 second timeout
-    #         print(f"FFmpeg completed successfully")
+            print(f"Running ffmpeg command: {' '.join(ffmpeg_cmd)}")
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=True, timeout=60)  # 60 second timeout
+            print(f"FFmpeg completed successfully")
             
-    #     except subprocess.TimeoutExpired:
-    #         print("FFmpeg timed out after 60 seconds")
-    #         # Kill any ffmpeg processes and use original video
-    #         subprocess.run(['pkill', '-f', 'ffmpeg'], capture_output=True)
-    #         final_video_path = output_path
-    #         final_video_filename = output_filename
-    #     except subprocess.CalledProcessError as e:
-    #         print(f"FFmpeg error: {e}")
-    #         print(f"FFmpeg stderr: {e.stderr}")
-    #         # If ffmpeg fails, use the original video
-    #         final_video_path = output_path
-    #         final_video_filename = output_filename
-        # except Exception as e:
-        #     print(f"Error processing video with ffmpeg: {e}")
-        #     # If ffmpeg fails, use the original video
-        #     final_video_path = output_path
-        #     final_video_filename = output_filename
+        except subprocess.TimeoutExpired:
+            print("FFmpeg timed out after 60 seconds")
+            # Kill any ffmpeg processes and use original video
+            subprocess.run(['pkill', '-f', 'ffmpeg'], capture_output=True)
+            final_video_path = output_path
+            final_video_filename = output_filename
+        except subprocess.CalledProcessError as e:
+            print(f"FFmpeg error: {e}")
+            print(f"FFmpeg stderr: {e.stderr}")
+            # If ffmpeg fails, use the original video
+            final_video_path = output_path
+            final_video_filename = output_filename
+        except Exception as e:
+            print(f"Error processing video with ffmpeg: {e}")
+            # If ffmpeg fails, use the original video
+            final_video_path = output_path
+            final_video_filename = output_filename
     
     # Upload output video to S3 and get URL
     if final_video_path and os.path.exists(final_video_path):
@@ -578,7 +577,7 @@ async def handler(input):
         )
         
         bucket_name = 'fritz-comfyui'  
-        s3_key = f"videos/{output_filename}"
+        s3_key = f"videos/{final_video_filename}"
         
         try:
             # Upload file to S3
