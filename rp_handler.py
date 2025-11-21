@@ -529,18 +529,19 @@ async def handler(input):
         
         try:
             # Use ffmpeg to combine video and audio with proper encoding
-            # Map video duration and trim/pad audio to match
+            # Audio will play at start, then silence for rest of video duration
             ffmpeg_cmd = [
                 'ffmpeg', '-y',  # -y to overwrite output files
                 '-i', output_path,  # Input video
                 '-i', audio_path,   # Input audio
-                '-c:v', 'copy',     # Copy video stream without re-encoding
+                '-c:v', 'copy',     # Copy video stream without re-encoding to preserve original
                 '-c:a', 'aac',      # Audio codec
-                '-b:a', '192k',     # Audio bitrate
-                '-shortest',        # End when shortest input ends (video duration)
+                '-b:a', '128k',     # Audio bitrate
+                '-filter_complex', '[1:a]apad=whole_dur=1800[padded_audio]',  # Pad audio to 30 minutes max (1800 seconds)
+                '-map', '0:v',      # Map video from first input
+                '-map', '[padded_audio]',  # Map padded audio
+                '-shortest',        # End when shortest input ends (video determines final duration)
                 '-avoid_negative_ts', 'make_zero',  # Handle timestamp issues
-                '-pix_fmt', 'yuv420p',  # Pixel format for compatibility
-                '-t', '10',         # Limit output to 10 seconds max (safety timeout)
                 final_video_path
             ]
             
