@@ -115,16 +115,13 @@ async def import_custom_nodes() -> None:
 from nodes import NODE_CLASS_MAPPINGS
  
 
-async def workflow(prompt:str,audio_file,image_file, output_suffix):
+async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_suffix):
     await import_custom_nodes()
     with torch.inference_mode():
         loadlynxresampler = NODE_CLASS_MAPPINGS["LoadLynxResampler"]()
         loadlynxresampler_16 = loadlynxresampler.loadmodel(
             model_name="Lynx/lynx_lite_resampler_fp32.safetensors", precision="fp16"
         )
-
-        wanvideoemptyembeds = NODE_CLASS_MAPPINGS["WanVideoEmptyEmbeds"]()
-        
 
         wanvideotextencodecached = NODE_CLASS_MAPPINGS["WanVideoTextEncodeCached"]()
         wanvideotextencodecached_26 = wanvideotextencodecached.process(
@@ -202,16 +199,12 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
 
         vhs_loadaudioupload = NODE_CLASS_MAPPINGS["VHS_LoadAudioUpload"]()
         vhs_loadaudioupload_93 = vhs_loadaudioupload.load_audio(
-            audio=audio_file,
-            start_time=0,
-            duration=0,
+            audio=audio_file, start_time=0, duration=4
         )
 
         intconstant = NODE_CLASS_MAPPINGS["INTConstant"]()
         intconstant_95 = intconstant.get_value(value=24)
-        mathexpressionpysssss = NODE_CLASS_MAPPINGS["MathExpression|pysssss"]()
-        
-        mathexpressionpysssss_98 =int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
+
         downloadandloadwav2vecmodel = NODE_CLASS_MAPPINGS[
             "DownloadAndLoadWav2VecModel"
         ]()
@@ -226,13 +219,68 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
             model="infinitetalk_single.safetensors"
         )
 
+        cliploader = NODE_CLASS_MAPPINGS["CLIPLoader"]()
+        cliploader_116 = cliploader.load_clip(
+            clip_name="umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            type="wan",
+            device="default",
+        )
+
+        cliptextencode = NODE_CLASS_MAPPINGS["CLIPTextEncode"]()
+        cliptextencode_102 = cliptextencode.encode(
+            text="色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
+            clip=get_value_at_index(cliploader_116, 0),
+        )
+
+        vaeloader = NODE_CLASS_MAPPINGS["VAELoader"]()
+        vaeloader_103 = vaeloader.load_vae(vae_name="wan_2.1_vae.safetensors")
+
+        unetloader = NODE_CLASS_MAPPINGS["UNETLoader"]()
+        unetloader_114 = unetloader.load_unet(
+            unet_name="wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+            weight_dtype="fp8_e4m3fn",
+        )
+
+        unetloader_115 = unetloader.load_unet(
+            unet_name="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+            weight_dtype="fp8_e4m3fn",
+        )
+
+        loraloadermodelonly = NODE_CLASS_MAPPINGS["LoraLoaderModelOnly"]()
+        loraloadermodelonly_117 = loraloadermodelonly.load_lora_model_only(
+            lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+            strength_model=1,
+            model=get_value_at_index(unetloader_114, 0),
+        )
+
+        loraloadermodelonly_118 = loraloadermodelonly.load_lora_model_only(
+            lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+            strength_model=1,
+            model=get_value_at_index(unetloader_115, 0),
+        )
+
+        cliptextencode_121 = cliptextencode.encode(
+            text=prompt_motion,
+            clip=get_value_at_index(cliploader_116, 0),
+        )
+
         wanvideomodelloader = NODE_CLASS_MAPPINGS["WanVideoModelLoader"]()
         wanvideosetloras = NODE_CLASS_MAPPINGS["WanVideoSetLoRAs"]()
         wanvideosetblockswap = NODE_CLASS_MAPPINGS["WanVideoSetBlockSwap"]()
+        wanvideoemptyembeds = NODE_CLASS_MAPPINGS["WanVideoEmptyEmbeds"]()
         wanvideoaddlynxembeds = NODE_CLASS_MAPPINGS["WanVideoAddLynxEmbeds"]()
         multitalkwav2vecembeds = NODE_CLASS_MAPPINGS["MultiTalkWav2VecEmbeds"]()
         wanvideosampler = NODE_CLASS_MAPPINGS["WanVideoSampler"]()
         wanvideodecode = NODE_CLASS_MAPPINGS["WanVideoDecode"]()
+        imageselector = NODE_CLASS_MAPPINGS["ImageSelector"]()
+        wanimagetovideo = NODE_CLASS_MAPPINGS["WanImageToVideo"]()
+        pathchsageattentionkj = NODE_CLASS_MAPPINGS["PathchSageAttentionKJ"]()
+        modelsamplingsd3 = NODE_CLASS_MAPPINGS["ModelSamplingSD3"]()
+        ksampleradvanced = NODE_CLASS_MAPPINGS["KSamplerAdvanced"]()
+        vaedecode = NODE_CLASS_MAPPINGS["VAEDecode"]()
+        imagebatchextendwithoverlap = NODE_CLASS_MAPPINGS[
+            "ImageBatchExtendWithOverlap"
+        ]()
         vhs_videocombine = NODE_CLASS_MAPPINGS["VHS_VideoCombine"]()
 
         for q in range(1):
@@ -261,9 +309,11 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
                 model=get_value_at_index(wanvideosetloras_60, 0),
                 block_swap_args=get_value_at_index(wanvideoblockswap_29, 0),
             )
+
             wanvideoemptyembeds_24 = wanvideoemptyembeds.process(
-            width=832, height=480, num_frames=mathexpressionpysssss_98
-        )
+                width=832, height=480, num_frames=get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1)
+            )
+
             wanvideoaddlynxembeds_55 = wanvideoaddlynxembeds.add(
                 ip_scale=0.7,
                 ref_scale=0.6,
@@ -277,17 +327,17 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
                 ref_text_embed=get_value_at_index(wanvideotextencodecached_51, 0),
             )
 
-            
             multitalkwav2vecembeds_99 = multitalkwav2vecembeds.process(
                 normalize_loudness=True,
-                num_frames=mathexpressionpysssss_98,
-                fps=24,
+                num_frames=get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1),
+                fps=24.9,
                 audio_scale=1,
                 audio_cfg_scale=2,
                 multi_audio_type="para",
                 wav2vec_model=get_value_at_index(downloadandloadwav2vecmodel_96, 0),
                 audio_1=get_value_at_index(vhs_loadaudioupload_93, 0),
             )
+
             wanvideosampler_22 = wanvideosampler.process(
                 steps=6,
                 cfg=1,
@@ -313,30 +363,113 @@ async def workflow(prompt:str,audio_file,image_file, output_suffix):
                 tile_x=272,
                 tile_y=272,
                 tile_stride_x=144,
-                tile_stride_y=128,
+                tile_stride_y=32,
                 normalization="default",
                 vae=get_value_at_index(wanvideovaeloader_31, 0),
                 samples=get_value_at_index(wanvideosampler_22, 0),
             )
 
-            vhs_videocombine_77 = vhs_videocombine.combine_video(
+            imageselector_101 = imageselector.run(
+                selected_indexes="-1", images=get_value_at_index(wanvideodecode_32, 0)
+            )
+
+            wanimagetovideo_105 = wanimagetovideo.EXECUTE_NORMALIZED(
+                width=832,
+                height=480,
+                length=121,
+                batch_size=1,
+                positive=get_value_at_index(cliptextencode_121, 0),
+                negative=get_value_at_index(cliptextencode_102, 0),
+                vae=get_value_at_index(vaeloader_103, 0),
+                start_image=get_value_at_index(imageselector_101, 0),
+            )
+
+            pathchsageattentionkj_112 = pathchsageattentionkj.patch(
+                sage_attention="auto",
+                allow_compile=False,
+                model=get_value_at_index(loraloadermodelonly_117, 0),
+            )
+
+            modelsamplingsd3_106 = modelsamplingsd3.patch(
+                shift=8.000000000000002,
+                model=get_value_at_index(pathchsageattentionkj_112, 0),
+            )
+
+            pathchsageattentionkj_108 = pathchsageattentionkj.patch(
+                sage_attention="auto",
+                allow_compile=False,
+                model=get_value_at_index(loraloadermodelonly_118, 0),
+            )
+
+            modelsamplingsd3_109 = modelsamplingsd3.patch(
+                shift=8, model=get_value_at_index(pathchsageattentionkj_108, 0)
+            )
+
+            ksampleradvanced_113 = ksampleradvanced.sample(
+                add_noise="enable",
+                noise_seed=random.randint(1, 2**64),
+                steps=6,
+                cfg=1,
+                sampler_name="lcm",
+                scheduler="simple",
+                start_at_step=0,
+                end_at_step=3,
+                return_with_leftover_noise="enable",
+                model=get_value_at_index(modelsamplingsd3_106, 0),
+                positive=get_value_at_index(wanimagetovideo_105, 0),
+                negative=get_value_at_index(wanimagetovideo_105, 1),
+                latent_image=get_value_at_index(wanimagetovideo_105, 2),
+            )
+
+            ksampleradvanced_110 = ksampleradvanced.sample(
+                add_noise="disable",
+                noise_seed=random.randint(1, 2**64),
+                steps=6,
+                cfg=1,
+                sampler_name="lcm",
+                scheduler="simple",
+                start_at_step=3,
+                end_at_step=10000,
+                return_with_leftover_noise="disable",
+                model=get_value_at_index(modelsamplingsd3_109, 0),
+                positive=get_value_at_index(wanimagetovideo_105, 0),
+                negative=get_value_at_index(wanimagetovideo_105, 1),
+                latent_image=get_value_at_index(ksampleradvanced_113, 0),
+            )
+
+            vaedecode_111 = vaedecode.decode(
+                samples=get_value_at_index(ksampleradvanced_110, 0),
+                vae=get_value_at_index(vaeloader_103, 0),
+            )
+
+            imagebatchextendwithoverlap_126 = (
+                imagebatchextendwithoverlap.imagesfrombatch(
+                    overlap=1,
+                    overlap_side="source",
+                    overlap_mode="linear_blend",
+                    source_images=get_value_at_index(wanvideodecode_32, 0),
+                    new_images=get_value_at_index(vaedecode_111, 0),
+                )
+            )
+
+            vhs_videocombine_120 = vhs_videocombine.combine_video(
                 frame_rate=24,
                 loop_count=0,
                 filename_prefix=f"output_{output_suffix}",
-                format="video/h264-mp4",
-                pix_fmt="yuv420p",
-                crf=19,
+                format="video/h265-mp4",
+                pix_fmt="yuv420p10le",
+                crf=22,
                 save_metadata=True,
-                trim_to_audio=True,
                 pingpong=False,
                 save_output=True,
-                images=get_value_at_index(wanvideodecode_32, 0),
+                images=get_value_at_index(imagebatchextendwithoverlap_126, 2),
                 audio=get_value_at_index(vhs_loadaudioupload_93, 0),
-                unique_id=15650465383331186117,
+                unique_id=3956264520723635728,
             )
 
 async def handler(input):
     prompt = input["input"].get("prompt")
+    prompt_motion = input["input"].get("prompt_motion")
     image_url = input["input"].get("image_url")
     audio_url = input["input"].get("audio_url")
     
@@ -370,7 +503,7 @@ async def handler(input):
     
     random_suffix = uuid.uuid4().hex[:6]
     # Run the workflow with the downloaded files (pass filenames, not full paths)
-    await workflow(prompt, audio_filename, image_filename, random_suffix)
+    await workflow(prompt, prompt_motion, audio_filename, image_filename, random_suffix)
     
     # Find the output video file
     outputs_dir = "/root/comfy/ComfyUI/output/"
