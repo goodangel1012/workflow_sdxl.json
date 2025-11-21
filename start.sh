@@ -146,6 +146,22 @@ validate_lynx_folder() {
         return 1  # Folder doesn't exist
     fi
     
+    # Define required Lynx model files
+    required_lynx_files=(
+        "Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors"
+        "lynx_lite_resampler_fp32.safetensors"
+        "Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors"
+        # Add other required Lynx model files here as needed
+    )
+    
+    # Check if all required files exist
+    for file in "${required_lynx_files[@]}"; do
+        if [ ! -f "$lynx_path/$file" ]; then
+            echo "[ERROR] Required Lynx model file not found: $file"
+            return 1
+        fi
+    done
+    
     # Check if any safetensors files exist in Lynx folder
     if [ ! "$(find "$lynx_path" -name "*.safetensors" | head -1)" ]; then
         return 1  # No safetensors files found
