@@ -529,15 +529,15 @@ async def handler(input):
         
         try:
             # Use ffmpeg to combine video and audio with proper encoding
+            # Keep video length, add audio at start and pad with silence if needed
             ffmpeg_cmd = [
                 'ffmpeg', '-y',  # -y to overwrite output files
                 '-i', output_path,  # Input video
                 '-i', audio_path,   # Input audio
-                '-c:v', 'libx264',  # Video codec
+                '-c:v', 'copy',     # Copy video stream without re-encoding
                 '-c:a', 'aac',      # Audio codec
-                '-strict', 'experimental',
                 '-b:a', '192k',     # Audio bitrate
-                '-shortest',        # Match shortest stream duration
+                '-af', 'apad',      # Pad audio with silence to match video duration
                 '-pix_fmt', 'yuv420p',  # Pixel format for compatibility
                 final_video_path
             ]
