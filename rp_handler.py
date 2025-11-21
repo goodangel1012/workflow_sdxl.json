@@ -311,7 +311,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideoemptyembeds_24 = wanvideoemptyembeds.process(
-                width=832, height=480, num_frames=get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1)
+                width=832, height=480, num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
             )
 
             wanvideoaddlynxembeds_55 = wanvideoaddlynxembeds.add(
@@ -329,7 +329,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
 
             multitalkwav2vecembeds_99 = multitalkwav2vecembeds.process(
                 normalize_loudness=True,
-                num_frames=get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1),
+                num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1)),
                 fps=24.9,
                 audio_scale=1,
                 audio_cfg_scale=2,
