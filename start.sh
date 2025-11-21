@@ -189,18 +189,16 @@ EOF
 }
 
 # Download and validate Lynx from HuggingFace Hub
+echo "Force redownloading Lynx models..."
+rm -rf /runpod-volume/WanVideo_comfy/Lynx
+python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Kijai/WanVideo_comfy', local_dir='/runpod-volume/WanVideo_comfy', allow_patterns='Lynx/*')"
+
+# Validate after download
 if ! validate_lynx_folder; then
-    echo "Lynx folder not found or corrupted, downloading from HuggingFace Hub..."
-    rm -rf /runpod-volume/WanVideo_comfy/Lynx
-    python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Kijai/WanVideo_comfy', local_dir='/runpod-volume/WanVideo_comfy', allow_patterns='Lynx/*')"
-    
-    # Validate again after download
-    if ! validate_lynx_folder; then
-        echo "[ERROR] Downloaded Lynx files are still corrupted!"
-        exit 1
-    fi
+    echo "[ERROR] Downloaded Lynx files are corrupted!"
+    exit 1
 else
-    echo "Lynx folder exists and is valid"
+    echo "Lynx folder downloaded and validated successfully"
 fi
 
 # Copy Lynx model

@@ -97,6 +97,55 @@ def selective_cleanup(stage=""):
         print(f"[SELECTIVE_CLEANUP {stage}] Cache cleared")
     except Exception as e:
         print(f"[ERROR] Selective cleanup failed: {e}")
+
+def validate_cuda_state():
+    """Validate CUDA device state and configuration"""
+    try:
+        if not torch.cuda.is_available():
+            print(f"[ERROR] CUDA not available")
+            return False
+            
+        device_count = torch.cuda.device_count()
+        current_device = torch.cuda.current_device()
+        device_name = torch.cuda.get_device_name(current_device)
+        
+        print(f"[CUDA] Device count: {device_count}")
+        print(f"[CUDA] Current device: {current_device} ({device_name})")
+        print(f"[CUDA] CUDA capability: {torch.cuda.get_device_capability(current_device)}")
+        
+        # Test basic CUDA operations
+        test_tensor = torch.tensor([1.0]).cuda()
+        test_result = test_tensor * 2
+        test_result.cpu()
+        del test_tensor, test_result
+        
+        print(f"[CUDA] Basic operations test passed")
+        return True
+        
+    except Exception as e:
+        print(f"[ERROR] CUDA validation failed: {e}")
+        return False
+
+def debug_tensor_operations(stage=""):
+    """Debug tensor operations and device placement"""
+    try:
+        # Set CUDA_LAUNCH_BLOCKING for better error reporting
+        os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+        
+        print(f"[DEBUG {stage}] CUDA_LAUNCH_BLOCKING enabled")
+        
+        # Check for mixed precision issues
+        if torch.cuda.is_available():
+            current_device = torch.cuda.current_device()
+            print(f"[DEBUG {stage}] Current CUDA device: {current_device}")
+            
+            # Check device properties
+            props = torch.cuda.get_device_properties(current_device)
+            print(f"[DEBUG {stage}] Device memory: {props.total_memory / 1024**3:.1f}GB")
+            print(f"[DEBUG {stage}] Compute capability: {props.major}.{props.minor}")
+            
+    except Exception as e:
+        print(f"[ERROR] Debug tensor operations failed: {e}")
 def get_value_at_index(obj: Union[Sequence, Mapping], index: int) -> Any:
     """Returns the value at the given index of a sequence or mapping.
 
@@ -201,6 +250,13 @@ from nodes import NODE_CLASS_MAPPINGS
  
 
 async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_suffix):
+    # Validate CUDA state before starting
+    if not validate_cuda_state():
+        raise RuntimeError("CUDA validation failed - cannot proceed with workflow")
+    
+    # Enable debugging
+    debug_tensor_operations("WORKFLOW_START")
+    
     # Clear memory before starting workflow
     log_memory_usage("START")
     cleanup_memory()
@@ -387,10 +443,17 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             if q > 0:  # Not needed on first iteration
                 cleanup_memory()
             
-            wanvideoextramodelselect_13 = wanvideoextramodelselect.getmodelpath(
-                extra_model="Lynx/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
-                prev_model=get_value_at_index(wanvideoextramodelselect_69, 0),
-            )
+            try:
+                wanvideoextramodelselect_13 = wanvideoextramodelselect.getmodelpath(
+                    extra_model="Lynx/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
+                    prev_model=get_value_at_index(wanvideoextramodelselect_69, 0),
+                )
+                debug_tensor_operations("AFTER_LYNX_MODEL_LOAD")
+                
+            except Exception as model_error:
+                print(f"[ERROR] Failed to load Lynx model: {model_error}")
+                validate_cuda_state()
+                raise model_error
 
             wanvideomodelloader_12 = wanvideomodelloader.loadmodel(
                 model="Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -629,7 +692,27 @@ async def handler(input):
             # Run the workflow with the downloaded files (pass filenames, not full paths)
             await workflow(prompt, prompt_motion, audio_filename, image_filename, random_suffix)
         except Exception as workflow_error:
-            print(f"[ERROR] Workflow failed: {workflow_error}")
+            error_msg = str(workflow_error)
+            print(f"[ERROR] Workflow failed: {error_msg}")
+            
+            # Enhanced CUDA error diagnostics
+            if "CUDA" in error_msg or "cuda" in error_msg:
+                print(f"[CUDA_ERROR] Detected CUDA-related error")
+                validate_cuda_state()
+                
+                # Check for common CUDA error patterns
+                if "invalid argument" in error_msg:
+                    print(f"[CUDA_ERROR] Invalid argument - possible causes:")
+                    print(f"  - Device index out of range")
+                    print(f"  - Invalid tensor dimensions")
+                    print(f"  - Mixed device operations")
+                    print(f"  - Corrupted model weights")
+                    print(f"  - Driver compatibility issues")
+                    
+                if "out of memory" in error_msg:
+                    print(f"[CUDA_ERROR] Out of memory detected")
+                    log_memory_usage("OOM_ERROR")
+                    
             log_memory_usage("ERROR")
             cleanup_memory()
             clear_model_cache()
