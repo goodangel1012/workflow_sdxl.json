@@ -578,7 +578,7 @@ async def handler(input):
         )
         
         bucket_name = 'fritz-comfyui'  
-        s3_key = f"videos/{final_video_filename}"
+        s3_key = f"videos/{output_filename}"
         
         try:
             # Upload file to S3
