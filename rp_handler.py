@@ -273,49 +273,15 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
         )
 
         cliploader = NODE_CLASS_MAPPINGS["CLIPLoader"]()
-        cliploader_116 = cliploader.load_clip(
-            clip_name="umt5_xxl_fp8_e4m3fn_scaled.safetensors",
-            type="wan",
-            device="default",
-        )
+        
 
         cliptextencode = NODE_CLASS_MAPPINGS["CLIPTextEncode"]()
-        cliptextencode_102 = cliptextencode.encode(
-            text="色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
-            clip=get_value_at_index(cliploader_116, 0),
-        )
 
         vaeloader = NODE_CLASS_MAPPINGS["VAELoader"]()
         vaeloader_103 = vaeloader.load_vae(vae_name="wan_2.1_vae.safetensors")
 
-        unetloader = NODE_CLASS_MAPPINGS["UNETLoader"]()
-        unetloader_114 = unetloader.load_unet(
-            unet_name="wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
-            weight_dtype="fp8_e4m3fn",
-        )
-
-        unetloader_115 = unetloader.load_unet(
-            unet_name="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
-            weight_dtype="fp8_e4m3fn",
-        )
-
-        loraloadermodelonly = NODE_CLASS_MAPPINGS["LoraLoaderModelOnly"]()
-        loraloadermodelonly_117 = loraloadermodelonly.load_lora_model_only(
-            lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
-            strength_model=1,
-            model=get_value_at_index(unetloader_114, 0),
-        )
-
-        loraloadermodelonly_118 = loraloadermodelonly.load_lora_model_only(
-            lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
-            strength_model=1,
-            model=get_value_at_index(unetloader_115, 0),
-        )
-
-        cliptextencode_121 = cliptextencode.encode(
-            text=prompt_motion,
-            clip=get_value_at_index(cliploader_116, 0),
-        )
+        
+        
 
         wanvideomodelloader = NODE_CLASS_MAPPINGS["WanVideoModelLoader"]()
         wanvideosetloras = NODE_CLASS_MAPPINGS["WanVideoSetLoRAs"]()
@@ -396,7 +362,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 cfg=1,
                 shift=8,
                 seed=random.randint(1, 2**64),
-                force_offload=True,
+                force_offload=False,
                 scheduler="lcm",
                 riflex_freq_index=0,
                 denoise_strength=1,
@@ -421,11 +387,23 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 vae=get_value_at_index(wanvideovaeloader_31, 0),
                 samples=get_value_at_index(wanvideosampler_22, 0),
             )
-
+            purge_vram()
             imageselector_101 = imageselector.run(
                 selected_indexes="-1", images=get_value_at_index(wanvideodecode_32, 0)
             )
-
+            cliploader_116 = cliploader.load_clip(
+            clip_name="umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            type="wan",
+            device="default",
+            )
+            cliptextencode_102 = cliptextencode.encode(
+                text="色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
+                clip=get_value_at_index(cliploader_116, 0),
+            )
+            cliptextencode_121 = cliptextencode.encode(
+                text=prompt_motion,
+                clip=get_value_at_index(cliploader_116, 0),
+            )
             wanimagetovideo_105 = wanimagetovideo.EXECUTE_NORMALIZED(
                 width=640,
                 height=352,
@@ -436,7 +414,24 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 vae=get_value_at_index(vaeloader_103, 0),
                 start_image=get_value_at_index(imageselector_101, 0),
             )
+            
+            unetloader = NODE_CLASS_MAPPINGS["UNETLoader"]()
+            unetloader_114 = unetloader.load_unet(
+                unet_name="wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+                weight_dtype="fp8_e4m3fn",
+            )
 
+            unetloader_115 = unetloader.load_unet(
+                unet_name="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+                weight_dtype="fp8_e4m3fn",
+            )
+
+            loraloadermodelonly = NODE_CLASS_MAPPINGS["LoraLoaderModelOnly"]()
+            loraloadermodelonly_117 = loraloadermodelonly.load_lora_model_only(
+                lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+                strength_model=1,
+                model=get_value_at_index(unetloader_114, 0),
+            )
             pathchsageattentionkj_112 = pathchsageattentionkj.patch(
                 sage_attention="auto",
                 allow_compile=False,
@@ -448,6 +443,11 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 model=get_value_at_index(pathchsageattentionkj_112, 0),
             )
 
+            loraloadermodelonly_118 = loraloadermodelonly.load_lora_model_only(
+                lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+                strength_model=1,
+                model=get_value_at_index(unetloader_115, 0),
+            )    
             pathchsageattentionkj_108 = pathchsageattentionkj.patch(
                 sage_attention="auto",
                 allow_compile=False,
