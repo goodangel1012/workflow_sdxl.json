@@ -10,13 +10,18 @@ import boto3
 import runpod
 import os
 import gc
+import psutil
 
 def purge_vram():
     """
-    Comprehensive VRAM cleanup function that clears all GPU memory, caches, and models.
-    This function should be called after each workflow run to prevent VRAM accumulation.
+    Comprehensive VRAM and RAM cleanup function that clears all GPU memory, system memory, caches, and models.
+    This function should be called after each workflow run to prevent memory accumulation.
     """
     try:
+        # Get initial memory stats
+        import psutil
+        ram_before = psutil.virtual_memory().used / 1024**3  # Convert to GB
+        
         # Clear PyTorch CUDA cache
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -27,9 +32,10 @@ def purge_vram():
             reserved_before = torch.cuda.memory_reserved() / 1024**3    # Convert to GB
             
             print(f"VRAM before cleanup: {allocated_before:.2f}GB allocated, {reserved_before:.2f}GB reserved")
+            print(f"RAM before cleanup: {ram_before:.2f}GB used")
             
             # Force garbage collection multiple times for thorough cleanup
-            for _ in range(3):
+            for _ in range(5):  # Increased from 3 to 5 for more thorough cleanup
                 gc.collect()
                 
             # Clear CUDA cache again after garbage collection
@@ -48,16 +54,44 @@ def purge_vram():
             
         else:
             print("CUDA not available, skipping GPU memory cleanup")
+            print(f"RAM before cleanup: {ram_before:.2f}GB used")
             
-        # Force Python garbage collection
-        gc.collect()
+        # Aggressive Python garbage collection for RAM cleanup
+        for _ in range(5):
+            gc.collect()
         
         # Clear any remaining references
         import sys
         if hasattr(sys, '_clear_type_cache'):
             sys._clear_type_cache()
+        
+        # Clear module caches
+        if hasattr(sys, 'modules'):
+            # Clear __pycache__ references where possible
+            for module_name, module in list(sys.modules.items()):
+                if hasattr(module, '__dict__'):
+                    # Clear module-level variables that might hold large objects
+                    for attr_name in list(module.__dict__.keys()):
+                        if attr_name.startswith('_cached_') or attr_name.startswith('_temp_'):
+                            try:
+                                delattr(module, attr_name)
+                            except:
+                                pass
+        
+        # Force memory trim on Linux systems
+        try:
+            import ctypes
+            libc = ctypes.CDLL("libc.so.6")
+            libc.malloc_trim(0)
+        except:
+            pass  # Not available on all systems
+        
+        # Get final memory stats
+        ram_after = psutil.virtual_memory().used / 1024**3
+        print(f"RAM after cleanup: {ram_after:.2f}GB used")
+        print(f"RAM freed: {(ram_before - ram_after):.2f}GB")
             
-        print("VRAM purge completed successfully")
+        print("VRAM and RAM purge completed successfully")
         
     except Exception as e:
         print(f"Error during VRAM purge: {e}")
@@ -388,22 +422,27 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 samples=get_value_at_index(wanvideosampler_22, 0),
             )
             purge_vram()
+            print("Selecting image...")
             imageselector_101 = imageselector.run(
                 selected_indexes="-1", images=get_value_at_index(wanvideodecode_32, 0)
             )
+            print("Loading umt5_xxl_fp8_e4m3fn_scaled.safetensors")
             cliploader_116 = cliploader.load_clip(
             clip_name="umt5_xxl_fp8_e4m3fn_scaled.safetensors",
             type="wan",
             device="default",
             )
+            print("Encoding negative prompt text...")
             cliptextencode_102 = cliptextencode.encode(
                 text="色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
                 clip=get_value_at_index(cliploader_116, 0),
             )
+            print("Encoding motion prompt text...")
             cliptextencode_121 = cliptextencode.encode(
                 text=prompt_motion,
                 clip=get_value_at_index(cliploader_116, 0),
             )
+            print("Generating image to video latent...")
             wanimagetovideo_105 = wanimagetovideo.EXECUTE_NORMALIZED(
                 width=640,
                 height=352,
@@ -414,18 +453,19 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 vae=get_value_at_index(vaeloader_103, 0),
                 start_image=get_value_at_index(imageselector_101, 0),
             )
-            
+            print("Loading 2_i2v_high_noise_14B_fp8_scaled.safetensors")
             unetloader = NODE_CLASS_MAPPINGS["UNETLoader"]()
             unetloader_114 = unetloader.load_unet(
                 unet_name="wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
                 weight_dtype="fp8_e4m3fn",
             )
-
+            print("Loading 2_i2v_low_noise_14B_fp8_scaled.safetensors")
             unetloader_115 = unetloader.load_unet(
                 unet_name="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
                 weight_dtype="fp8_e4m3fn",
             )
-
+            print("Applying LoRA and Sage Attention patches...")
+            print("loading Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors")
             loraloadermodelonly = NODE_CLASS_MAPPINGS["LoraLoaderModelOnly"]()
             loraloadermodelonly_117 = loraloadermodelonly.load_lora_model_only(
                 lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
@@ -442,7 +482,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 shift=8.000000000000002,
                 model=get_value_at_index(pathchsageattentionkj_112, 0),
             )
-
+            print("Loading Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors")
             loraloadermodelonly_118 = loraloadermodelonly.load_lora_model_only(
                 lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
                 strength_model=1,
@@ -457,7 +497,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             modelsamplingsd3_109 = modelsamplingsd3.patch(
                 shift=8, model=get_value_at_index(pathchsageattentionkj_108, 0)
             )
-
+            print("Starting advanced k-sampling...")
             ksampleradvanced_113 = ksampleradvanced.sample(
                 add_noise="enable",
                 noise_seed=random.randint(1, 2**64),
