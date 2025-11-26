@@ -518,7 +518,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 add_noise="disable",
                 noise_seed=random.randint(1, 2**64),
                 steps=4,
-                cfg=1,
+                cfg=1, 
                 sampler_name="lcm",
                 scheduler="simple",
                 start_at_step=2,
