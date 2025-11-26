@@ -364,7 +364,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideoemptyembeds_24 = wanvideoemptyembeds.process(
-                width=768, height=432, num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
+                width=640, height=360, num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
             )
 
             wanvideoaddlynxembeds_55 = wanvideoaddlynxembeds.add(
@@ -427,8 +427,8 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanimagetovideo_105 = wanimagetovideo.EXECUTE_NORMALIZED(
-                width=768,
-                height=432,
+                width=640,
+                height=360,
                 length=121,
                 batch_size=1,
                 positive=get_value_at_index(cliptextencode_121, 0),
@@ -461,12 +461,12 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             ksampleradvanced_113 = ksampleradvanced.sample(
                 add_noise="enable",
                 noise_seed=random.randint(1, 2**64),
-                steps=6,
+                steps=4,
                 cfg=1,
                 sampler_name="lcm",
                 scheduler="simple",
                 start_at_step=0,
-                end_at_step=3,
+                end_at_step=2,
                 return_with_leftover_noise="enable",
                 model=get_value_at_index(modelsamplingsd3_106, 0),
                 positive=get_value_at_index(wanimagetovideo_105, 0),
@@ -477,11 +477,11 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             ksampleradvanced_110 = ksampleradvanced.sample(
                 add_noise="disable",
                 noise_seed=random.randint(1, 2**64),
-                steps=6,
+                steps=4,
                 cfg=1,
                 sampler_name="lcm",
                 scheduler="simple",
-                start_at_step=3,
+                start_at_step=2,
                 end_at_step=10000,
                 return_with_leftover_noise="disable",
                 model=get_value_at_index(modelsamplingsd3_109, 0),
