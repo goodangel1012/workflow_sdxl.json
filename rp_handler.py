@@ -364,7 +364,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideoemptyembeds_24 = wanvideoemptyembeds.process(
-                width=832, height=480, num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
+                width=768, height=432, num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
             )
 
             wanvideoaddlynxembeds_55 = wanvideoaddlynxembeds.add(
@@ -392,7 +392,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideosampler_22 = wanvideosampler.process(
-                steps=6,
+                steps=4,
                 cfg=1,
                 shift=8,
                 seed=random.randint(1, 2**64),
@@ -427,8 +427,8 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanimagetovideo_105 = wanimagetovideo.EXECUTE_NORMALIZED(
-                width=832,
-                height=480,
+                width=768,
+                height=432,
                 length=121,
                 batch_size=1,
                 positive=get_value_at_index(cliptextencode_121, 0),
