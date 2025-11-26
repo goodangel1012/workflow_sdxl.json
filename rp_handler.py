@@ -9,6 +9,59 @@ import torch
 import boto3
 import runpod
 import os
+import gc
+
+def purge_vram():
+    """
+    Comprehensive VRAM cleanup function that clears all GPU memory, caches, and models.
+    This function should be called after each workflow run to prevent VRAM accumulation.
+    """
+    try:
+        # Clear PyTorch CUDA cache
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            
+            # Get GPU memory info before cleanup
+            allocated_before = torch.cuda.memory_allocated() / 1024**3  # Convert to GB
+            reserved_before = torch.cuda.memory_reserved() / 1024**3    # Convert to GB
+            
+            print(f"VRAM before cleanup: {allocated_before:.2f}GB allocated, {reserved_before:.2f}GB reserved")
+            
+            # Force garbage collection multiple times for thorough cleanup
+            for _ in range(3):
+                gc.collect()
+                
+            # Clear CUDA cache again after garbage collection
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            
+            # Reset peak memory stats
+            torch.cuda.reset_peak_memory_stats()
+            
+            # Get GPU memory info after cleanup
+            allocated_after = torch.cuda.memory_allocated() / 1024**3
+            reserved_after = torch.cuda.memory_reserved() / 1024**3
+            
+            print(f"VRAM after cleanup: {allocated_after:.2f}GB allocated, {reserved_after:.2f}GB reserved")
+            print(f"VRAM freed: {(allocated_before - allocated_after):.2f}GB allocated, {(reserved_before - reserved_after):.2f}GB reserved")
+            
+        else:
+            print("CUDA not available, skipping GPU memory cleanup")
+            
+        # Force Python garbage collection
+        gc.collect()
+        
+        # Clear any remaining references
+        import sys
+        if hasattr(sys, '_clear_type_cache'):
+            sys._clear_type_cache()
+            
+        print("VRAM purge completed successfully")
+        
+    except Exception as e:
+        print(f"Error during VRAM purge: {e}")
+
 
 AWS_ACCESS_KEY=os.environ.get("AWS_ACCESS_KEY")
 AWS_SECRET_ACCESS_KEY=os.environ.get("AWS_SECRET_ACCESS_KEY")
@@ -468,6 +521,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
 async def handler(input):
+
     prompt = input["input"].get("prompt")
     prompt_motion = input["input"].get("prompt_motion")
     image_url = input["input"].get("image_url")
@@ -609,7 +663,7 @@ async def handler(input):
     else:
         print("No output video file found")
         output_s3_url = None
-        
+    purge_vram()
     return { 
         "message": "Success! Download the video from the provided URL." if output_s3_url else "Failed to generate or upload video.",
         "video_url": output_s3_url
