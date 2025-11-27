@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04
+FROM nvidia/cuda:12.6.0-devel-ubuntu22.04
 
 # Set working directory to root
 WORKDIR /root
@@ -24,8 +24,9 @@ RUN apt-get update && apt-get install -y \
     
 RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN pip install --upgrade pip
-RUN pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
-
+RUN pip install git+https://github.com/UmerBaig123/pytorch.git
+RUN pip install git+https://github.com/pytorch/vision.git
+RUN pip install git+https://github.com/pytorch/audio.git
 # Ensure pip upgraded
 RUN pip install --upgrade pip
 
