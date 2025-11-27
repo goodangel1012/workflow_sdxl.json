@@ -38,11 +38,7 @@ RUN comfy --skip-prompt install --fast-deps --nvidia
 RUN pip uninstall -y torch torchvision torchaudio
 RUN pip cache purge
 RUN pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
-RUN python3 -c "import torch; print('Torch:', torch.__version__); print('Compiled CUDA:', torch.version.cuda); print('CUDA available:', torch.cuda.is_available()); \
-try: \
-    print('Device count:', torch.cuda.device_count()); \
-except Exception as e: \
-    print('Device count error:', e)"
+RUN python3 -c "import torch; print('Torch:', torch.__version__); print('Compiled CUDA:', torch.version.cuda); print('CUDA available:', torch.cuda.is_available()); import sys; sys.stdout.flush(); exec('try:\\n    print(\\'Device count:\\', torch.cuda.device_count())\\nexcept Exception as e:\\n    print(\\'Device count error:\\', e)')"
 
 # Clone ComfyUI custom nodes
 RUN git clone https://github.com/kijai/ComfyUI-GIMM-VFI.git /root/comfy/ComfyUI/custom_nodes/ComfyUI-GIMM-VFI && \
