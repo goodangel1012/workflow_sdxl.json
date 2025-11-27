@@ -13,7 +13,75 @@ import gc
 import psutil
 
 def purge_vram():
-    pass
+    """Aggressive RAM and VRAM cleanup to prevent OOM"""
+    try:
+        import gc
+        import psutil
+        import ctypes
+        import sys
+        
+        # Get initial memory stats
+        ram_before = psutil.virtual_memory().used / 1024**3
+        
+        if torch.cuda.is_available():
+            vram_before = torch.cuda.memory_allocated() / 1024**3
+            print(f"Before cleanup - RAM: {ram_before:.2f}GB, VRAM: {vram_before:.2f}GB")
+            
+            # Only clear intermediate VRAM tensors, keep models on GPU
+            torch.cuda.empty_cache()
+        else:
+            print(f"Before cleanup - RAM: {ram_before:.2f}GB")
+            
+        # AGGRESSIVE RAM CLEANUP
+        # Clear all possible Python references
+        for _ in range(10):  # Multiple aggressive GC passes
+            gc.collect()
+            
+        # Clear module caches and temporary variables
+        if hasattr(sys, 'modules'):
+            for module_name, module in list(sys.modules.items()):
+                if hasattr(module, '__dict__'):
+                    for attr_name in list(module.__dict__.keys()):
+                        if (attr_name.startswith('_temp_') or 
+                            attr_name.startswith('_cache_') or
+                            attr_name.startswith('_buffer_')):
+                            try:
+                                if "device" not in attr_name:
+                                    delattr(module, attr_name)
+                            except:
+                                pass
+        
+        # Clear Python's internal caches
+        if hasattr(sys, '_clear_type_cache'):
+            sys._clear_type_cache()
+            
+        # Force memory trim on Linux (returns freed memory to OS)
+        try:
+            libc = ctypes.CDLL("libc.so.6")
+            libc.malloc_trim(0)
+        except:
+            try:
+                # Alternative for different systems
+                ctypes.CDLL(None).malloc_trim(0)
+            except:
+                pass
+                
+        # Final GC passes
+        for _ in range(5):
+            gc.collect()
+            
+        # Get final memory stats
+        ram_after = psutil.virtual_memory().used / 1024**3
+        if torch.cuda.is_available():
+            vram_after = torch.cuda.memory_allocated() / 1024**3
+            print(f"After cleanup - RAM: {ram_after:.2f}GB (freed {ram_before-ram_after:.2f}GB), VRAM: {vram_after:.2f}GB")
+        else:
+            print(f"After cleanup - RAM: {ram_after:.2f}GB (freed {ram_before-ram_after:.2f}GB)")
+            
+        print("Aggressive memory cleanup completed")
+        
+    except Exception as e:
+        print(f"Error during memory cleanup: {e}")
 
 
 AWS_ACCESS_KEY=os.environ.get("AWS_ACCESS_KEY")
@@ -123,6 +191,24 @@ from nodes import NODE_CLASS_MAPPINGS
 
 async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_suffix):
     await import_custom_nodes()
+    
+    # Monitor RAM usage and cleanup if needed
+    import psutil
+    ram_usage = psutil.virtual_memory().percent
+    if ram_usage > 70:
+        print(f"Warning: High RAM usage ({ram_usage:.1f}%), performing cleanup")
+        purge_vram()
+    
+    # Configure PyTorch for optimal VRAM usage
+    torch.backends.cuda.matmul.allow_tf32 = True  # Enable TF32 for better performance
+    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cudnn.benchmark = True  # Optimize for consistent input sizes
+    
+    # Set memory allocation strategy to prefer VRAM
+    if torch.cuda.is_available():
+        torch.cuda.set_per_process_memory_fraction(0.90)  # Use 90% of VRAM, leave 10% buffer
+        torch.cuda.empty_cache()  # Start with clean VRAM
+    
     with torch.inference_mode():
         loadlynxresampler = NODE_CLASS_MAPPINGS["LoadLynxResampler"]()
         loadlynxresampler_16 = loadlynxresampler.loadmodel(
@@ -142,12 +228,12 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
 
         wanvideoblockswap = NODE_CLASS_MAPPINGS["WanVideoBlockSwap"]()
         wanvideoblockswap_29 = wanvideoblockswap.setargs(
-            blocks_to_swap=20,
-            offload_img_emb=False,
-            offload_txt_emb=False,
+            blocks_to_swap=5,  # Reduced from 20 to keep more blocks in VRAM
+            offload_img_emb=False,  # Keep image embeddings in VRAM
+            offload_txt_emb=False,  # Keep text embeddings in VRAM
             use_non_blocking=True,
-            vace_blocks_to_swap=0,
-            prefetch_blocks=1,
+            vace_blocks_to_swap=0,  # Don't swap VAE blocks
+            prefetch_blocks=3,  # Increased prefetch for better VRAM utilization
             block_swap_debug=False,
         )
 
@@ -217,13 +303,18 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
         downloadandloadwav2vecmodel_96 = downloadandloadwav2vecmodel.loadmodel(
             model="TencentGameMate/chinese-wav2vec2-base",
             base_precision="fp16",
-            load_device="main_device",
+            load_device="main_device",  # Force GPU to avoid RAM usage
         )
 
         multitalkmodelloader = NODE_CLASS_MAPPINGS["MultiTalkModelLoader"]()
         multitalkmodelloader_100 = multitalkmodelloader.loadmodel(
             model="infinitetalk_single.safetensors"
         )
+        
+        # Clean RAM after loading heavy models
+        import gc
+        for _ in range(3):
+            gc.collect()
 
         cliploader = NODE_CLASS_MAPPINGS["CLIPLoader"]()
         
@@ -265,7 +356,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 model="Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
                 base_precision="fp16_fast",
                 quantization="disabled",
-                load_device="offload_device",
+                load_device="main_device",  # Changed from offload_device to keep models on GPU
                 attention_mode="sageattn",
                 rms_norm_function="default",
                 extra_model=get_value_at_index(wanvideoextramodelselect_13, 0),
@@ -331,16 +422,24 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideodecode_32 = wanvideodecode.decode(
-                enable_vae_tiling=False,
-                tile_x=272,
-                tile_y=272,
-                tile_stride_x=144,
-                tile_stride_y=32,
+                enable_vae_tiling=True,  # Enable tiling to save VRAM during decode
+                tile_x=512,  # Larger tiles for better VRAM efficiency
+                tile_y=512,  # Larger tiles for better VRAM efficiency
+                tile_stride_x=256,  # Optimized stride
+                tile_stride_y=256,  # Optimized stride
                 normalization="default",
                 vae=get_value_at_index(wanvideovaeloader_31, 0),
                 samples=get_value_at_index(wanvideosampler_22, 0),
             )
-            purge_vram()
+            
+            # Monitor and cleanup RAM if needed
+            ram_usage = psutil.virtual_memory().percent
+            if ram_usage > 80:
+                print(f"High RAM usage detected ({ram_usage:.1f}%), cleaning up...")
+                import gc
+                for _ in range(5):
+                    gc.collect()
+                
             print("Selecting image...")
             imageselector_101 = imageselector.run(
                 selected_indexes="-1", images=get_value_at_index(wanvideodecode_32, 0)
@@ -349,7 +448,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             cliploader_116 = cliploader.load_clip(
             clip_name="umt5_xxl_fp8_e4m3fn_scaled.safetensors",
             type="wan",
-            device="default",
+            device="default",  # Use GPU instead of CPU
             )
             print("Encoding negative prompt text...")
             cliptextencode_102 = cliptextencode.encode(
@@ -480,6 +579,13 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
 async def handler(input):
+    # Monitor RAM at start
+    ram_usage = psutil.virtual_memory().percent
+    print(f"Starting handler - RAM usage: {ram_usage:.1f}%")
+    
+    if ram_usage > 75:
+        print("High RAM usage detected, performing emergency cleanup")
+        purge_vram()
 
     prompt = input["input"].get("prompt")
     prompt_motion = input["input"].get("prompt_motion")
