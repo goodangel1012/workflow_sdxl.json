@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+import time
 import uuid
 import requests
 import subprocess
@@ -433,13 +434,21 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
             
             # Monitor and cleanup RAM if needed
-            ram_usage = psutil.virtual_memory().percent
-            if ram_usage > 80:
-                print(f"High RAM usage detected ({ram_usage:.1f}%), cleaning up...")
-                import gc
-                for _ in range(5):
-                    gc.collect()
-                
+            vram_usage_start = torch.cuda.memory_allocated() / 1024**3
+            del (
+                wanvideoextramodelselect_13,
+                wanvideomodelloader_12,
+                wanvideosetloras_60,
+                wanvideosetblockswap_28,
+                wanvideoemptyembeds_24,
+                wanvideoaddlynxembeds_55,
+                multitalkwav2vecembeds_99,
+                wanvideosampler_22,
+            )
+            purge_vram()
+            time.sleep(2)  # Allow time for VRAM to stabilize
+            vram_usage_end = torch.cuda.memory_allocated() / 1024**3
+            print(f"VRAM usage before cleanup: {vram_usage_start:.2f}GB, after cleanup: {vram_usage_end:.2f}GB")
             print("Selecting image...")
             imageselector_101 = imageselector.run(
                 selected_indexes="-1", images=get_value_at_index(wanvideodecode_32, 0)
