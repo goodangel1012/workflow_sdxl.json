@@ -35,6 +35,8 @@ RUN pip install --no-cache-dir comfy-cli
 
 # Install ComfyUI with fast dependencies and NVIDIA support
 RUN comfy --skip-prompt install --fast-deps --nvidia
+RUN pip uninstall -y torch torchvision torchaudio
+RUN pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
 
 # Clone ComfyUI custom nodes
 RUN git clone https://github.com/kijai/ComfyUI-GIMM-VFI.git /root/comfy/ComfyUI/custom_nodes/ComfyUI-GIMM-VFI && \
@@ -81,9 +83,7 @@ RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git /root/comfy/C
 # Install final packages
 RUN pip install --no-cache-dir sageattention==1.0.6
 RUN pip install --no-cache-dir insightface runpod boto3
-
-RUN rm -f /usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py
-COPY __init__.py /usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py
+ 
 # Copy rp_handler.py to ComfyUI directory
 COPY rp_handler.py /root/comfy/ComfyUI/
 
