@@ -38,20 +38,7 @@ def purge_vram():
         for _ in range(10):  # Multiple aggressive GC passes
             gc.collect()
             
-        # Clear module caches and temporary variables
-        if hasattr(sys, 'modules'):
-            for module_name, module in list(sys.modules.items()):
-                if hasattr(module, '__dict__'):
-                    for attr_name in list(module.__dict__.keys()):
-                        if (attr_name.startswith('_temp_') or 
-                            attr_name.startswith('_cache_') or
-                            attr_name.startswith('_buffer_')):
-                            try:
-                                if "device" not in attr_name:
-                                    delattr(module, attr_name)
-                            except:
-                                pass
-        
+        # Clear module caches and temporary variables 
         # Clear Python's internal caches
         if hasattr(sys, '_clear_type_cache'):
             sys._clear_type_cache()
@@ -446,7 +433,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 wanvideosampler_22,
             )
             purge_vram()
-            time.sleep(2)  # Allow time for VRAM to stabilize
+            time.sleep(10)  # Allow time for VRAM to stabilize
             vram_usage_end = torch.cuda.memory_allocated() / 1024**3
             print(f"VRAM usage before cleanup: {vram_usage_start:.2f}GB, after cleanup: {vram_usage_end:.2f}GB")
             print("Selecting image...")
@@ -469,6 +456,8 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 text=prompt_motion,
                 clip=get_value_at_index(cliploader_116, 0),
             )
+            del cliploader_116
+            purge_vram()
             print("Generating image to video latent...")
             wanimagetovideo_105 = wanimagetovideo.EXECUTE_NORMALIZED(
                 width=640,
@@ -486,11 +475,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 unet_name="wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
                 weight_dtype="fp8_e4m3fn",
             )
-            print("Loading 2_i2v_low_noise_14B_fp8_scaled.safetensors")
-            unetloader_115 = unetloader.load_unet(
-                unet_name="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
-                weight_dtype="fp8_e4m3fn",
-            )
+            
             print("Applying LoRA and Sage Attention patches...")
             print("loading Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors")
             loraloadermodelonly = NODE_CLASS_MAPPINGS["LoraLoaderModelOnly"]()
@@ -509,21 +494,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 shift=8.000000000000002,
                 model=get_value_at_index(pathchsageattentionkj_112, 0),
             )
-            print("Loading Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors")
-            loraloadermodelonly_118 = loraloadermodelonly.load_lora_model_only(
-                lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
-                strength_model=1,
-                model=get_value_at_index(unetloader_115, 0),
-            )    
-            pathchsageattentionkj_108 = pathchsageattentionkj.patch(
-                sage_attention="auto",
-                allow_compile=False,
-                model=get_value_at_index(loraloadermodelonly_118, 0),
-            )
-
-            modelsamplingsd3_109 = modelsamplingsd3.patch(
-                shift=8, model=get_value_at_index(pathchsageattentionkj_108, 0)
-            )
+            
             print("Starting advanced k-sampling...")
             ksampleradvanced_113 = ksampleradvanced.sample(
                 add_noise="enable",
@@ -540,7 +511,30 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 negative=get_value_at_index(wanimagetovideo_105, 1),
                 latent_image=get_value_at_index(wanimagetovideo_105, 2),
             )
+            del unetloader_114
+            del loraloadermodelonly_117
+            purge_vram()
+            time.sleep(10)  # Allow time for VRAM to stabilize
+            print("Loading 2_i2v_low_noise_14B_fp8_scaled.safetensors")
+            unetloader_115 = unetloader.load_unet(
+                unet_name="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+                weight_dtype="fp8_e4m3fn",
+            )
+            print("Loading Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors")
+            loraloadermodelonly_118 = loraloadermodelonly.load_lora_model_only(
+                lora_name="Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+                strength_model=1,
+                model=get_value_at_index(unetloader_115, 0),
+            )    
+            pathchsageattentionkj_108 = pathchsageattentionkj.patch(
+                sage_attention="auto",
+                allow_compile=False,
+                model=get_value_at_index(loraloadermodelonly_118, 0),
+            )
 
+            modelsamplingsd3_109 = modelsamplingsd3.patch(
+                shift=8, model=get_value_at_index(pathchsageattentionkj_108, 0)
+            )
             ksampleradvanced_110 = ksampleradvanced.sample(
                 add_noise="disable",
                 noise_seed=random.randint(1, 2**64),
