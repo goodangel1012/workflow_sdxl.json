@@ -26,8 +26,6 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN pip install --upgrade pip
 RUN pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
 # Delete pytorch/torch/cuda/__init__.py and copy local version
-RUN rm -f /usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py
-COPY __init__.py /usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py
 # Ensure pip upgraded
 RUN pip install --upgrade pip
 
@@ -84,6 +82,8 @@ RUN git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git /root/comfy/C
 RUN pip install --no-cache-dir sageattention==1.0.6
 RUN pip install --no-cache-dir insightface runpod boto3
 
+RUN rm -f /usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py
+COPY __init__.py /usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py
 # Copy rp_handler.py to ComfyUI directory
 COPY rp_handler.py /root/comfy/ComfyUI/
 
