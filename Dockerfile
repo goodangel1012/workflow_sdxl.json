@@ -88,7 +88,8 @@ RUN pip install --no-cache-dir insightface runpod boto3
  
 # Copy rp_handler.py to ComfyUI directory
 COPY rp_handler.py /root/comfy/ComfyUI/
-
+RUN rm -f /root/comfy/ComfyUI/nodes.py
+COPY nodes.py /root/comfy/ComfyUI/
 # Set the working directory to ComfyUI
 WORKDIR /root/comfy/ComfyUI
 COPY start.sh /start.sh
