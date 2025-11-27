@@ -1,5 +1,10 @@
 #!/bin/bash
 
+pip uninstall -y torch torchvision torchaudio
+pip cache purge
+pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
+python3 -c "import torch; print('Torch:', torch.__version__); print('Compiled CUDA:', torch.version.cuda); print('CUDA available:', torch.cuda.is_available()); import sys; sys.stdout.flush(); exec('try:\\n    print(\\'Device count:\\', torch.cuda.device_count())\\nexcept Exception as e:\\n    print(\\'Device count error:\\', e)')"
+
 # Create directories
 mkdir -p /runpod-volume \
     /root/comfy/ComfyUI/models/loras \
