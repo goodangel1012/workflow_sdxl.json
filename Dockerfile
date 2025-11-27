@@ -36,7 +36,9 @@ RUN pip install --no-cache-dir comfy-cli
 # Install ComfyUI with fast dependencies and NVIDIA support
 RUN comfy --skip-prompt install --fast-deps --nvidia
 RUN pip uninstall -y torch torchvision torchaudio
-RUN pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
+RUN pip install git+https://github.com/UmerBaig123/pytorch.git
+RUN pip install git+https://github.com/pytorch/vision.git
+RUN pip install git+https://github.com/pytorch/audio.git
 
 # Clone ComfyUI custom nodes
 RUN git clone https://github.com/kijai/ComfyUI-GIMM-VFI.git /root/comfy/ComfyUI/custom_nodes/ComfyUI-GIMM-VFI && \
