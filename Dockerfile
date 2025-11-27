@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
     
 RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN pip install --upgrade pip
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+RUN pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
 
 # Ensure pip upgraded
 RUN pip install --upgrade pip

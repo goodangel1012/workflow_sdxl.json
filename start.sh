@@ -188,7 +188,7 @@ EOF
     done
 }
 
-Download and validate Lynx from HuggingFace Hub
+# Download and validate Lynx from HuggingFace Hub
 if ! validate_lynx_folder; then
     echo "Lynx folder not found or corrupted, downloading from HuggingFace Hub..."
     rm -rf /runpod-volume/WanVideo_comfy/Lynx
