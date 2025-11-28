@@ -436,7 +436,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideoemptyembeds_24 = wanvideoemptyembeds.process(
-                width=640, height=352, num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
+                width=360, height=640, num_frames=int(get_value_at_index(intconstant_95, 0)*get_value_at_index(vhs_loadaudioupload_93, 1))
             )
 
             wanvideoaddlynxembeds_55 = wanvideoaddlynxembeds.add(
@@ -533,8 +533,8 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             purge_vram()
             print("Generating image to video latent...")
             wanimagetovideo_105 = wanimagetovideo.EXECUTE_NORMALIZED(
-                width=640,
-                height=352,
+                width=360,
+                height=640,
                 length=121,
                 batch_size=1,
                 positive=get_value_at_index(cliptextencode_121, 0),
