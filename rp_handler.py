@@ -432,8 +432,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 multitalkwav2vecembeds_99,
                 wanvideosampler_22,
             )
-            purge_vram()
-            time.sleep(10)  # Allow time for VRAM to stabilize
+            purge_vram() 
             vram_usage_end = torch.cuda.memory_allocated() / 1024**3
             print(f"VRAM usage before cleanup: {vram_usage_start:.2f}GB, after cleanup: {vram_usage_end:.2f}GB")
             print("Selecting image...")
@@ -513,8 +512,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
             del unetloader_114
             del loraloadermodelonly_117
-            purge_vram()
-            time.sleep(10)  # Allow time for VRAM to stabilize
+            purge_vram() 
             print("Loading 2_i2v_low_noise_14B_fp8_scaled.safetensors")
             unetloader_115 = unetloader.load_unet(
                 unet_name="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
