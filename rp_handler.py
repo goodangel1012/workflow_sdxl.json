@@ -11,6 +11,7 @@ import boto3
 import runpod
 import os
 import gc
+import shutil
 import psutil
 
 def purge_vram():
@@ -176,7 +177,80 @@ async def import_custom_nodes() -> None:
 
 from nodes import NODE_CLASS_MAPPINGS
  
+async def upscale_workflow(video_file,output_suffix):
+    await import_custom_nodes()
+    
+    # Monitor RAM usage and cleanup if needed
+    import psutil
+    ram_usage = psutil.virtual_memory().percent
+    if ram_usage > 70:
+        print(f"Warning: High RAM usage ({ram_usage:.1f}%), performing cleanup")
+        purge_vram()
+    
+    # Configure PyTorch for optimal VRAM usage
+    torch.backends.cuda.matmul.allow_tf32 = True  # Enable TF32 for better performance
+    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cudnn.benchmark = True  # Optimize for consistent input sizes
+    
+    # Set memory allocation strategy to prefer VRAM
+    if torch.cuda.is_available():
+        torch.cuda.set_per_process_memory_fraction(0.90)  # Use 90% of VRAM, leave 10% buffer
+        torch.cuda.empty_cache()  # Start with clean VRAM
+    
+    with torch.inference_mode():
+        vhs_loadvideo = NODE_CLASS_MAPPINGS["VHS_LoadVideo"]()
+        vhs_loadvideo_1 = vhs_loadvideo.load_video(
+            video=video_file,
+            force_rate=0,
+            custom_width=0,
+            custom_height=0,
+            frame_load_cap=0,
+            skip_first_frames=0,
+            select_every_nth=1,
+            format="AnimateDiff",
+            unique_id=14884766115541647826,
+        )
 
+        upscalemodelloader = NODE_CLASS_MAPPINGS["UpscaleModelLoader"]()
+        upscalemodelloader_4 = upscalemodelloader.EXECUTE_NORMALIZED(
+            model_name="RealESRGAN_x2.pth"
+        )
+
+        vhs_videoinfosource = NODE_CLASS_MAPPINGS["VHS_VideoInfoSource"]()
+        imageupscalewithmodel = NODE_CLASS_MAPPINGS["ImageUpscaleWithModel"]()
+        imagescaleby = NODE_CLASS_MAPPINGS["ImageScaleBy"]()
+        vhs_videocombine = NODE_CLASS_MAPPINGS["VHS_VideoCombine"]()
+
+        for q in range(1):
+            vhs_videoinfosource_3 = vhs_videoinfosource.get_video_info(
+                video_info=get_value_at_index(vhs_loadvideo_1, 3)
+            )
+
+            imageupscalewithmodel_7 = imageupscalewithmodel.EXECUTE_NORMALIZED(
+                upscale_model=get_value_at_index(upscalemodelloader_4, 0),
+                image=get_value_at_index(vhs_loadvideo_1, 0),
+            )
+
+            imagescaleby_6 = imagescaleby.upscale(
+                upscale_method="nearest-exact",
+                scale_by=2,
+                image=get_value_at_index(imageupscalewithmodel_7, 0),
+            )
+
+            vhs_videocombine_2 = vhs_videocombine.combine_video(
+                frame_rate=get_value_at_index(vhs_videoinfosource_3, 0),
+                loop_count=0,
+                filename_prefix=f"output_{output_suffix}",
+                format="video/h264-mp4",
+                pix_fmt="yuv420p",
+                crf=19,
+                save_metadata=True,
+                trim_to_audio=False,
+                pingpong=False,
+                save_output=True,
+                images=get_value_at_index(imagescaleby_6, 0),
+                unique_id=4842594312946713770,
+            )
 async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_suffix):
     await import_custom_nodes()
     
@@ -637,11 +711,23 @@ async def handler(input):
 
     if output_filename:
         output_path = os.path.join(outputs_dir, output_filename)
+    # Copy the output video file to the inputs directory
     else:
         output_path = None
+    shutil.copy2(output_path, os.path.join(inputs_dir,output_filename))
+    random_suffix = uuid.uuid4().hex[:6]+"_upscaled"
+    await upscale_workflow(output_filename, random_suffix)
+    # Find the upscaled output video file
+    output_filename = None
+    if os.path.exists(outputs_dir):
+        for filename in os.listdir(outputs_dir):
+            if filename.startswith(f"output_{random_suffix}") and filename.endswith(".mp4"):
+                output_filename = filename
+                break
+    if output_filename:
+        output_path = os.path.join(outputs_dir, output_filename)
         
     final_video_path = None
-    
     # Process video with ffmpeg to ensure audio is properly combined
     if output_path and os.path.exists(output_path):
         final_video_filename = f"final_{random_suffix}.mp4"

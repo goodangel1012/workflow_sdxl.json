@@ -92,6 +92,13 @@ RUN rm -f /root/comfy/ComfyUI/nodes.py
 COPY nodes.py /root/comfy/ComfyUI/
 # Set the working directory to ComfyUI
 WORKDIR /root/comfy/ComfyUI
+# Clone WAS Node Suite and install its requirements
+RUN git clone https://github.com/WASasquatch/was-node-suite-comfyui.git /root/comfy/ComfyUI/custom_nodes/was-node-suite-comfyui && \
+    pip install --no-cache-dir -r /root/comfy/ComfyUI/custom_nodes/was-node-suite-comfyui/requirements.txt
+
+# Create upscale_models directory and download RealESRGAN_x2.pth
+RUN mkdir -p /root/comfy/ComfyUI/models/upscale_models && \
+    wget -O /root/comfy/ComfyUI/models/upscale_models/RealESRGAN_x2.pth https://huggingface.co/ai-forever/Real-ESRGAN/resolve/main/RealESRGAN_x2.pth
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 CMD ["/start.sh"]
