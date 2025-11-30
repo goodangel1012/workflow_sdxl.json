@@ -98,7 +98,7 @@ RUN git clone https://github.com/WASasquatch/was-node-suite-comfyui.git /root/co
 
 # Create upscale_models directory and download RealESRGAN_x2.pth
 RUN mkdir -p /root/comfy/ComfyUI/models/upscale_models && \
-    wget -O /root/comfy/ComfyUI/models/upscale_models/RealESRGAN_x2.pth https://huggingface.co/lllyasviel/Annotators/resolve/main/RealESRGAN_x4plus.pth
+    wget -O /root/comfy/ComfyUI/models/upscale_models/RealESRGAN_x2.pth https://huggingface.co/dtarnow/UPscaler/resolve/main/RealESRGAN_x2plus.pth
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 CMD ["/start.sh"]
