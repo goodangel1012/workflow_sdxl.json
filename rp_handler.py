@@ -232,8 +232,8 @@ async def upscale_workflow(video_file,output_suffix):
             )
 
             imagescaleby_6 = imagescaleby.upscale(
-                upscale_method="nearest-exact",
-                scale_by=1.5,
+                upscale_method="bicubic",
+                scale_by=1.3,
                 image=get_value_at_index(imageupscalewithmodel_7, 0),
             )
 
