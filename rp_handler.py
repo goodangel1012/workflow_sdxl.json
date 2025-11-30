@@ -464,7 +464,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideosampler_22 = wanvideosampler.process(
-                steps=4,
+                steps=6,
                 cfg=1,
                 shift=8,
                 seed=random.randint(1, 2**64),
@@ -572,12 +572,12 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             ksampleradvanced_113 = ksampleradvanced.sample(
                 add_noise="enable",
                 noise_seed=random.randint(1, 2**64),
-                steps=4,
+                steps=6,
                 cfg=1,
                 sampler_name="lcm",
                 scheduler="simple",
                 start_at_step=0,
-                end_at_step=2,
+                end_at_step=3,
                 return_with_leftover_noise="enable",
                 model=get_value_at_index(modelsamplingsd3_106, 0),
                 positive=get_value_at_index(wanimagetovideo_105, 0),
@@ -610,11 +610,11 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             ksampleradvanced_110 = ksampleradvanced.sample(
                 add_noise="disable",
                 noise_seed=random.randint(1, 2**64),
-                steps=4,
+                steps=6,
                 cfg=1, 
                 sampler_name="lcm",
                 scheduler="simple",
-                start_at_step=2,
+                start_at_step=3,
                 end_at_step=10000,
                 return_with_leftover_noise="disable",
                 model=get_value_at_index(modelsamplingsd3_109, 0),
