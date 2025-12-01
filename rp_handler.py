@@ -626,12 +626,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             vaedecode_111 = vaedecode.decode(
                 samples=get_value_at_index(ksampleradvanced_110, 0),
                 vae=get_value_at_index(vaeloader_103, 0),
-            )
-            images = get_value_at_index(vaedecode_111, 0)
-            dublicated_images = []
-            for img in images:
-                dublicated_images.append(img)
-                dublicated_images.append(img)
+            ) 
             imagebatchextendwithoverlap_126 = (
                 imagebatchextendwithoverlap.imagesfrombatch(
                     overlap=1,
