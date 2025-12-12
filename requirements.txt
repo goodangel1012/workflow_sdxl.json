@@ -1,0 +1,68 @@
+# Core dependencies for video generation pipeline
+boto3
+botocore
+requests
+
+# Text-to-Speech (TTS) generation
+cartesia
+
+# Audio processing
+pydub
+
+# HTTP and async requests
+httpx
+aiohttp
+httpx-sse
+
+# Data validation and serialization
+pydantic
+pydantic-core
+
+# Web UI framework
+gradio
+
+# Type hints and utilities
+typing-extensions
+annotated-types
+
+# Async support
+anyio
+sniffio
+
+# HTTP client dependencies
+charset-normalizer
+certifi
+idna
+urllib3
+
+# Data structures
+frozenlist
+multidict
+yarl
+propcache
+
+# WebSocket support
+websockets
+
+# Async signal handling
+aiosignal
+
+# Network utilities
+aiohappyeyeballs
+
+# HTTP core
+h11
+httpcore
+
+# Additional utilities
+attrs
+iterators
+typing-inspection
+requests
+# Standard library backports (if needed)
+# pathlib2
+moviepy
+opencv-python
+mediapipe
+videodb
+backoff

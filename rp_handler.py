@@ -11,9 +11,10 @@ import boto3
 import runpod
 import os
 import gc
+import tts_generator 
 import shutil
 import psutil
-
+from background_audio import run_pipeline
 def purge_vram():
     """Aggressive RAM and VRAM cleanup to prevent OOM"""
     try:
@@ -664,8 +665,14 @@ async def handler(input):
     prompt = input["input"].get("prompt")
     prompt_motion = input["input"].get("prompt_motion")
     image_url = input["input"].get("image_url")
-    audio_url = input["input"].get("audio_url")
-    
+    audio_dialog = input["input"].get("dialog")
+    gender = input["input"].get("gender", "female")
+    if gender == "male":
+        voice_id=random.choice(tts_generator.list_male_voice_ids())
+    else:
+        voice_id=random.choice(tts_generator.list_female_voice_ids())
+    user_id=uuid.uuid4().hex[:8]
+    audio_path = tts_generator.generate_audio_from_transcript(audio_dialog, output_filename=f"{user_id}_dialog_audio", voice_id=voice_id)
     # Create the inputs directory if it doesn't exist (correct path)
     inputs_dir = "/root/comfy/ComfyUI/input/"
     os.makedirs(inputs_dir, exist_ok=True)
@@ -682,21 +689,15 @@ async def handler(input):
     with open(image_path, 'wb') as f:
         f.write(image_response.content)
     
-    # Download audio
-    audio_response = requests.get(audio_url)
-    audio_response.raise_for_status()
-    
-    # Get file extension from URL or default to .wav for audio
-    audio_ext = os.path.splitext(audio_url.split('?')[0])[1] or '.wav'
-    audio_filename = f"{uuid.uuid4().hex}{audio_ext}"
-    audio_path = os.path.join(inputs_dir, audio_filename)
-    
-    with open(audio_path, 'wb') as f:
-        f.write(audio_response.content)
+    # Copy the generated TTS audio to the inputs directory
+    tts_audio_filename = os.path.basename(audio_path)
+    inputs_audio_path = os.path.join(inputs_dir, tts_audio_filename)
+    shutil.copy2(audio_path, inputs_audio_path)
+    audio_path = inputs_audio_path
     
     random_suffix = uuid.uuid4().hex[:6]
     # Run the workflow with the downloaded files (pass filenames, not full paths)
-    await workflow(prompt, prompt_motion, audio_filename, image_filename, random_suffix)
+    await workflow(prompt, prompt_motion, tts_audio_filename, image_filename, random_suffix)
     
     # Find the output video file
     outputs_dir = "/root/comfy/ComfyUI/output/"
@@ -770,10 +771,12 @@ async def handler(input):
             print(f"Error processing video with ffmpeg: {e}")
             # If ffmpeg fails, use the original video
             final_video_path = output_path
-            final_video_filename = output_filename
-    
+            final_video_filename = output_filename 
+     
+    final_final_video_path = os.path.join(outputs_dir, f"full_video_{random_suffix}.mp4")
+    run_pipeline(final_video_path,output_path=final_final_video_path)
     # Upload output video to S3 and get URL
-    if final_video_path and os.path.exists(final_video_path):
+    if final_final_video_path and os.path.exists(final_final_video_path):
         s3_client = boto3.client(
             's3',
             aws_access_key_id=AWS_ACCESS_KEY,
@@ -786,8 +789,8 @@ async def handler(input):
         
         try:
             # Upload file to S3
-            print(f"Uploading {final_video_path} to S3 as {s3_key}")
-            s3_client.upload_file(final_video_path, bucket_name, s3_key)
+            print(f"Uploading {final_final_video_path} to S3 as {s3_key}")
+            s3_client.upload_file(final_final_video_path, bucket_name, s3_key)
             
             # Generate S3 URL
             s3_url = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
