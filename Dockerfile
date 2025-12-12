@@ -88,6 +88,9 @@ RUN pip install --no-cache-dir insightface runpod boto3
  
 # Copy rp_handler.py to ComfyUI directory
 COPY rp_handler.py /root/comfy/ComfyUI/
+COPY background_audio.py /root/comfy/ComfyUI/
+COPY tts_generator.py /root/comfy/ComfyUI/
+COPY requirements.txt /root/comfy/ComfyUI/
 RUN rm -f /root/comfy/ComfyUI/nodes.py
 COPY nodes.py /root/comfy/ComfyUI/
 # Set the working directory to ComfyUI
@@ -101,4 +104,5 @@ RUN mkdir -p /root/comfy/ComfyUI/models/upscale_models && \
     wget -O /root/comfy/ComfyUI/models/upscale_models/RealESRGAN_x2.pth https://huggingface.co/dtarnow/UPscaler/resolve/main/RealESRGAN_x2plus.pth
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
+RUN pip install -r requirements.txt
 CMD ["/start.sh"]
