@@ -668,9 +668,9 @@ async def handler(input):
     audio_dialog = input["input"].get("dialog")
     gender = input["input"].get("gender", "female")
     if gender == "male":
-        voice_id=random.choice(tts_generator.list_male_voice_ids())
+        voice_id="a0e99841-438c-4a64-b679-ae501e7d6091"
     else:
-        voice_id=random.choice(tts_generator.list_female_voice_ids())
+        voice_id="b7d50908-b17c-442d-ad8d-810c63997ed9"
     user_id=uuid.uuid4().hex[:8]
     audio_path = tts_generator.generate_audio_from_transcript(audio_dialog, output_filename=f"{user_id}_dialog_audio", voice_id=voice_id)
     # Create the inputs directory if it doesn't exist (correct path)
