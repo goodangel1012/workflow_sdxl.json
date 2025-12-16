@@ -783,7 +783,7 @@ async def handler(input):
             aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
             region_name='eu-north-1'  
         )
-        
+         
         bucket_name = 'fritz-comfyui'  
         s3_key = f"videos/{final_video_filename}"
         
