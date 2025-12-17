@@ -14,6 +14,7 @@ import gc
 import tts_generator 
 import shutil
 import psutil
+from add_silence import add_silence_to_audio
 from background_audio import run_pipeline
 def purge_vram():
     """Aggressive RAM and VRAM cleanup to prevent OOM"""
@@ -673,6 +674,7 @@ async def handler(input):
         voice_id="b7d50908-b17c-442d-ad8d-810c63997ed9"
     user_id=uuid.uuid4().hex[:8]
     audio_path = tts_generator.generate_audio_from_transcript(audio_dialog, output_filename=f"{user_id}_dialog_audio", voice_id=voice_id)
+    add_silence_to_audio(audio_path,audio_path)
     # Create the inputs directory if it doesn't exist (correct path)
     inputs_dir = "/root/comfy/ComfyUI/input/"
     os.makedirs(inputs_dir, exist_ok=True)
