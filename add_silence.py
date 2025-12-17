@@ -27,12 +27,12 @@ def add_silence_to_audio(input_path: str, output_path: str) -> None:
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
     
-    silence_path = f"{output_path}_silence.wav"
-    input_converted = f"{output_path}_input_converted.wav"
+    silence_path = f"{output_path}_silence.mp3"
+    input_converted = f"{output_path}_input_converted.mp3"
     concat_list_path = f"{output_path}_concat.txt"
     
     try:
-        # Step 1: Create 2 second silence as WAV
+        # Step 1: Create 2 second silence as MP3
         print("Step 1: Creating 2 seconds of silence...")
         subprocess.run([
             'ffmpeg', '-y', '-loglevel', 'error',
@@ -45,8 +45,8 @@ def add_silence_to_audio(input_path: str, output_path: str) -> None:
         ], check=True)
         print(f"  ✓ Silence created: {silence_path}")
         
-        # Step 2: Convert input audio to same format as silence
-        print("Step 2: Converting input audio to matching format...")
+        # Step 2: Convert input audio to MP3
+        print("Step 2: Converting input audio to MP3...")
         subprocess.run([
             'ffmpeg', '-y', '-loglevel', 'error',
             '-i', input_path,
@@ -56,18 +56,16 @@ def add_silence_to_audio(input_path: str, output_path: str) -> None:
         ], check=True)
         print(f"  ✓ Input converted: {input_converted}")
         
-        # Step 3: Concatenate silence + converted audio
+        # Step 3: Concatenate using filter_complex (more reliable than concat demuxer)
         print("Step 3: Concatenating silence with audio...")
-        with open(concat_list_path, 'w') as f:
-            f.write(f"file '{silence_path}'\n")
-            f.write(f"file '{input_converted}'\n")
-        
         subprocess.run([
             'ffmpeg', '-y', '-loglevel', 'error',
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', concat_list_path,
-            '-c', 'copy',
+            '-i', silence_path,
+            '-i', input_converted,
+            '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[out]',
+            '-map', '[out]',
+            '-q:a', '9',
+            '-acodec', 'libmp3lame',
             output_path
         ], check=True)
         
@@ -86,8 +84,8 @@ def add_silence_to_audio(input_path: str, output_path: str) -> None:
 
 
 def main():
-    input_path = "input.wav"
-    output_path = "input.wav"
+    input_path = "input.mp3"
+    output_path = "output.mp3"
     add_silence_to_audio(input_path, output_path)
 
 
