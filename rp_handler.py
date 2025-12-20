@@ -14,6 +14,7 @@ import gc
 import tts_generator 
 import shutil
 import psutil
+from trim_video import trim_video
 from add_silence import add_silence_to_audio
 from background_audio import run_pipeline
 def purge_vram():
@@ -718,16 +719,17 @@ async def handler(input):
         output_path = None
     shutil.copy2(output_path, os.path.join(inputs_dir,output_filename))
     random_suffix = uuid.uuid4().hex[:6]+"_upscaled"
-    await upscale_workflow(output_filename, random_suffix)
-    # Find the upscaled output video file
-    output_filename = None
-    if os.path.exists(outputs_dir):
-        for filename in os.listdir(outputs_dir):
-            if filename.startswith(f"output_{random_suffix}") and filename.endswith(".mp4"):
-                output_filename = filename
-                break
-    if output_filename:
-        output_path = os.path.join(outputs_dir, output_filename)
+    # Uncomment the following lines to enable upscaling
+    # await upscale_workflow(output_filename, random_suffix)
+    # # Find the upscaled output video file
+    # output_filename = None
+    # if os.path.exists(outputs_dir):
+    #     for filename in os.listdir(outputs_dir):
+    #         if filename.startswith(f"output_{random_suffix}") and filename.endswith(".mp4"):
+    #             output_filename = filename
+    #             break
+    # if output_filename:
+    #     output_path = os.path.join(outputs_dir, output_filename)
         
     final_video_path = None
     # Process video with ffmpeg to ensure audio is properly combined
@@ -777,6 +779,7 @@ async def handler(input):
      
     final_final_video_path = os.path.join(outputs_dir, f"full_video_{random_suffix}.mp4")
     run_pipeline(final_video_path,output_path=final_final_video_path)
+    trim_video(final_final_video_path,final_final_video_path)
     # Upload output video to S3 and get URL
     if final_final_video_path and os.path.exists(final_final_video_path):
         s3_client = boto3.client(

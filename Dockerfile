@@ -91,6 +91,7 @@ COPY rp_handler.py /root/comfy/ComfyUI/
 COPY background_audio.py /root/comfy/ComfyUI/
 COPY tts_generator.py /root/comfy/ComfyUI/
 COPY add_silence.py /root/comfy/ComfyUI/
+COPY trim_video.py /root/comfy/ComfyUI/
 COPY requirements.txt /root/comfy/ComfyUI/
 RUN rm -f /root/comfy/ComfyUI/nodes.py
 COPY nodes.py /root/comfy/ComfyUI/
