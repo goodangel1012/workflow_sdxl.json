@@ -467,7 +467,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
             )
 
             wanvideosampler_22 = wanvideosampler.process(
-                steps=8,
+                steps=5,
                 cfg=1,
                 shift=8,
                 seed=random.randint(1, 2**64),
