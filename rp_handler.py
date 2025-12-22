@@ -645,7 +645,7 @@ async def workflow(prompt:str,prompt_motion:str,audio_file,image_file, output_su
                 loop_count=0,
                 filename_prefix=f"output_{output_suffix}",
                 format="video/h265-mp4",
-                pix_fmt="yuv420p10le",
+                pix_fmt="yuv420p",
                 crf=22,
                 save_metadata=True,
                 pingpong=False,
@@ -674,7 +674,16 @@ async def handler(input):
     else:
         voice_id="b7d50908-b17c-442d-ad8d-810c63997ed9"
     user_id=uuid.uuid4().hex[:8]
-    audio_path = tts_generator.generate_audio_from_transcript(audio_dialog, output_filename=f"{user_id}_dialog_audio", voice_id=voice_id)
+    audio_url = input["input"].get("audio_url")
+    if audio_url is not None:
+        audio_response = requests.get(audio_url)
+        audio_response.raise_for_status()
+        audio_filename = f"{user_id}_audio.wav"
+        audio_path = os.path.join(inputs_dir, audio_filename)
+        with open(audio_path, 'wb') as f:
+            f.write(audio_response.content)
+    else:
+        audio_path = tts_generator.generate_audio_from_transcript(audio_dialog, output_filename=f"{user_id}_dialog_audio", voice_id=voice_id)
     add_silence_to_audio(audio_path,audio_path)
     # Create the inputs directory if it doesn't exist (correct path)
     inputs_dir = "/root/comfy/ComfyUI/input/"
