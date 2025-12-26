@@ -674,6 +674,9 @@ async def handler(input):
     else:
         voice_id="b7d50908-b17c-442d-ad8d-810c63997ed9"
     user_id=uuid.uuid4().hex[:8]
+    # Ensure inputs directory exists before any file operations
+    inputs_dir = "/root/comfy/ComfyUI/input/"
+    os.makedirs(inputs_dir, exist_ok=True)
     audio_url = input["input"].get("audio_url")
     if audio_url is not None:
         audio_response = requests.get(audio_url)
@@ -685,9 +688,6 @@ async def handler(input):
     else:
         audio_path = tts_generator.generate_audio_from_transcript(audio_dialog, output_filename=f"{user_id}_dialog_audio", voice_id=voice_id)
     add_silence_to_audio(audio_path,audio_path)
-    # Create the inputs directory if it doesn't exist (correct path)
-    inputs_dir = "/root/comfy/ComfyUI/input/"
-    os.makedirs(inputs_dir, exist_ok=True)
     
     # Download image
     image_response = requests.get(image_url)
